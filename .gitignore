@@ -1,0 +1,13 @@
+pdfs/*
+pdf_images/*
+output_images/*
+bert_model/*
+training_data.csv
+testing_data.csv
+training_data_1.csv
+testing_data_1.csv
+misclassified_rows.txt
+before_norm.png
+after_norm.png
+example.hocr
+example.pdf
