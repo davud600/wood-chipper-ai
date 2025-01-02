@@ -1,7 +1,3 @@
-pdfs/*
-pdf_images/*
-output_images/*
-bert_model/*
 training_data.csv
 testing_data.csv
 training_data_1.csv
