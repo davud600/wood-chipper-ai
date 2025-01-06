@@ -3,11 +3,11 @@ import csv
 import random
 import fitz  # PyMuPDF
 import pytesseract
-from PIL import Image, ImageOps
 import io
 import cv2
 import numpy as np
 import re
+from PIL import Image
 
 # Directories
 PDF_DIR = "pdfs"
@@ -15,6 +15,11 @@ IMAGE_DIR = "pdf_images"
 TRAINING_DATA_CSV = "training_data.csv"
 TESTING_DATA_CSV = "testing_data.csv"
 TRAINING_PERCENTAGE = 0.8  # Percentage of data to save in training data
+TYPES = {
+    "lease_renewal": 0,
+    "closing_documents": 1,
+    "sublease": 2
+}
 
 tesseract_config = r'--oem 1 --psm 3' # Use LSTM mode (1) and Default Page Segmentation Mode (3)
 pymupdf_dpi = 300
@@ -25,6 +30,16 @@ os.makedirs(IMAGE_DIR, exist_ok=True)
 # Check if CSV exists to determine if we need a header
 training_write_header = not os.path.exists(TRAINING_DATA_CSV)
 testing_write_header = not os.path.exists(TESTING_DATA_CSV)
+
+def get_doc_typ_from_name(file_name):
+    if "lease renewal" in file_name.lower():
+        return TYPES["lease_renewal"]
+    elif "closing documents" in file_name.lower():
+        return TYPES["closing_documents"]
+    elif "sublease" in file_name.lower():
+        return TYPES["sublease"]
+    else:
+        return TYPES["sublease"]
 
 def normalize_image(image):
     return cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
@@ -90,19 +105,20 @@ with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_fi
     test_writer = csv.writer(test_file)
 
     # Write headers if necessary
+    headers = ["text", "is_first_page", "type", "file_name", "page_number"]
     if training_write_header:
-        train_writer.writerow(["text", "label", "file_name", "page_number"])
+        train_writer.writerow(headers)
     if testing_write_header:
-        test_writer.writerow(["text", "label", "file_name", "page_number"])
+        test_writer.writerow(headers)
 
     # Iterate over PDFs
     pdf_list = os.listdir(PDF_DIR)
     for i, pdf_file in enumerate(pdf_list):
-        if not pdf_file.lower().endswith(".pdf"):
+        if not pdf_file.lower().endswith(".pdf") or i > 100:
             continue
 
         pdf_path = os.path.join(PDF_DIR, pdf_file)
-        print(f"Processing {i + 1} / {len(pdf_list)}: {pdf_path}")
+        print(f"Processing {i} / {len(pdf_list)}: {pdf_path}")
 
         try:
             doc = fitz.open(pdf_path)
@@ -127,8 +143,8 @@ with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_fi
 
             # Preprocessing steps
             image = normalize_image(image)
-            image = correct_skew(image)
-            image = remove_noise(image)
+            # image = correct_skew(image)
+            # image = remove_noise(image)
             image = binarize_image(image)
 
             return Image.fromarray(image)
@@ -146,8 +162,7 @@ with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_fi
         # Replace newlines with spaces
         first_page_text = first_page_text.replace("\n", " ")
         # Label = 1 for the first page
-        row = [first_page_text, 1, pdf_file, 1]
-        # print(row)
+        row = [first_page_text, 1, get_doc_typ_from_name(pdf_file), pdf_file, 1]
 
         # Randomly assign to training or testing
         if random.random() < TRAINING_PERCENTAGE:
@@ -170,7 +185,7 @@ with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_fi
             # Replace newlines with spaces
             random_page_text = random_page_text.replace("\n", " ")
             # Label = 0 for the random page
-            row = [random_page_text, 0, pdf_file, random_page_num]
+            row = [random_page_text, 0, get_doc_typ_from_name(pdf_file), pdf_file, random_page_num]
 
             # Randomly assign to training or testing
             if random.random() < TRAINING_PERCENTAGE:
@@ -181,3 +196,4 @@ with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_fi
         doc.close()
 
 print("Processing completed.")
+
