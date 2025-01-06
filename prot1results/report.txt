@@ -8,15 +8,15 @@ Classification Report:
    macro avg       0.92      0.91      0.92       334
 weighted avg       0.92      0.92      0.92       334
 
+Accuracy Report:
+306 / 334
+~92%
+
 Confusion Matrix:
 [[139  19]
  [  9 167]]
-Logged 28 misclassified rows to 'misclassified_rows.txt'.
-
-
 
 ----------------- misclassified_rows - 28 ---------------
-
 File: 11A - Lease Renewal from 03-01-2024 to 02-28-2026 - Barnes.pdf, Page: 1, True: 1, Pred: 0, Text: en omeorent  ee eer j we a sear, Wf ee Peeve cerned SS i Spc pean cate ogee ene Sma 8 etna ae tne ome Antena trator han, Pm S08 See A 6 creer ee permet te roe Pore erteceird al brs arated 2 URIS ALLS eed ee 1 eee  dnt Cl ser ae ert i et etnies cd ea a te Te Santee areal as a mw eee
 File: 1B - Lease Renewal from 09-01-2015 to 08-31-2017 - Surkin.pdf, Page: 5, True: 0, Pred: 1, Text: Cad RENEWAL LE LEASE FORM : To Por ns Tratstotidrexd RSTAUCTIONS To OWNER and IISTAUCTIONS TO TERANT on rr sts befera log cursing Ht "FuiS ISANOTICE FOR REKEWAL OF LEASE AMD REWEWAL LEASE FORM ISSUED UNDER SECTION 2523 Sia a OFTHE MEM YORK CTY RENT g, SURBICATICW CODE. AL COPIES CF THIS FORM HUST BE SIGNED BELOW AND RETURNED TO FOUR LANDLORD WITHIN GEDATS. , oN morn rk 7 " . Down O601 p03 8I AT AS OFFER TOTENANTIORENE Caan Hai aaa, for ene or two years, at your option, a3 follow: cor ote curmes sactiored ties ye teziv aa fs rratm secur epost - Bs  Gina cecam 4 5ZURLAM A tons Oop Rooemd:-yoarmane t 2V05 - 2vemome 5 Speclly aepirate chargea.t epplcabl nee Sirona 9 Tn Acme a 8 BENE, 4 Lowoe Rent ie Gined,t any. year lean 8. Tenant shall pay a monthly rent ont emound from SF or 6 348, TT Tora Tyeerrenowalor T4ta p 2 yrerreewat pls lil espana charges eter aut ron 48 G9 for aot moc pment. of t4227249 fora yourrenewalorS 2938.95 fora 2yearranwwal, STW Tenewal ease ehat commence on SVETZZOLS wile anell not be lees han 90 days or more than 150 days ram tha date ef mallng ot porsonal delivery of ih Renewal Lease Form, This Renewal Lease ahallterminale on OSCALFZOES h yout leave of CSFI3S217 2 ynar fo This renewal ence Ia based on tha same terme and condiions additonal provisions. gon a is i "9 SCRIE and DRIE Owin r'and Tanant acksiowedge that a of ind gato ot this renewal, Tondo is onli to pay'a reduced 7 momihly rent Inthe umaunt of undar the Hew York Cy SCA program Or the Neve York Cly DRE program, Thg reduced rent may be edjusied By ordars of such progeim. sGrLaesed premtnos doos HfdsonaciEShavean optus opie tom Noprale, wns at malted and Inspected on, Tas baci aiding kas ew we ale by th nc elo un etna othe tact. A a etn fr lights and oligesons of lananta snd cwnere undr the Rent Stabitation La mut be atached a thiatease when sled by Bo ow nd returned ote tenant. The rent, separea charges end loa payment provided fori this renewal lease ay be increased of by order or annual updalca ef Che Diviakon of Houshny and Comaurity Renal SHCA otha Rant Guidelines Board RG. ART B TENANTS BESEONSECTO OWNER, See ree ai  oor Bae ete hue Hanes Lean Pino Ree reo mo a we Sioa ea ae ea emoee SESE Tin ae tai sans Ton se Pacem een dg ey ena x Lec a a ea ee gee Le  eng ese Trai, en fac a 2 yen oral Ga ig mani oto 8, o "ye lc eyo ee eg Hanae gps on Beeson cote panooae  ui xpiring lead. Soe Inatructions ubout
 File: 1D_2018_Signed Renewal Lease_Lorenzo R.pdf, Page: 1, True: 1, Pred: 0, Text: fssTRDITIONE FOTN caer nt smenaserrenr anneal zeaema tauren .exurarcnoxeaaanine tl neganmen een MuaneT NNN ETN ca MTNA a Eat er i Boog A fe remiss Pet cer alse a tor asia gael are ary one rei ery oe eae ie ey oes mick connate sene Hoenn nt pene tere here cence ormtin roe ete ope ite
