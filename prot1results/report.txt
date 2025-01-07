@@ -10,7 +10,7 @@ weighted avg       0.92      0.92      0.92       334
 
 Accuracy Report:
 306 / 334
-~92%
+~91%
 
 Confusion Matrix:
 [[139  19]
