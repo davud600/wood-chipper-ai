@@ -66,16 +66,10 @@ with (
             continue
 
         doc_type = get_doc_typ_from_name(pdf_file)
-        # if doc_type == 0:
-        if doc_type != 4:
-            print(
-                f"'{pdf_file.lower()}' - Skipping because type unknown {i} / {len(pdf_list)}: {pdf_file}"
-            )
-
         pdf_path = os.path.join(PDF_DIR, pdf_file)
-        # print(
-        #     f"Processing {list(TYPES.keys())[doc_type]} {i} / {len(pdf_list)}: {pdf_file}"
-        # )
+        print(
+            f"Processing {list(TYPES.keys())[doc_type]} {i} / {len(pdf_list)}: {pdf_file}"
+        )
 
         try:
             doc = fitz.open(pdf_path)

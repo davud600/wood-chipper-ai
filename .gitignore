@@ -9,3 +9,4 @@ example.hocr
 example.pdf
 __pycache__
 .venv
+**/__pycache__/
