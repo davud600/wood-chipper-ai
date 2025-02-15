@@ -3,99 +3,73 @@ import csv
 import random
 import fitz  # PyMuPDF
 import pytesseract
-from PIL import Image, ImageOps
-import io
-import cv2
-import numpy as np
-import re
 
-PDF_DIR = "pdfs"
-IMAGE_DIR = "pdf_images"
-TRAINING_DATA_CSV = "training_data.csv"
-TESTING_DATA_CSV = "testing_data.csv"
-TRAINING_PERCENTAGE = 0.8
+from utils import (
+    IMAGE_DIR,
+    PDF_DIR,
+    TESTING_DATA_CSV,
+    TRAINING_DATA_CSV,
+    TRAINING_PERCENTAGE,
+    TYPES,
+    DocumentType,
+    clean_text,
+    get_doc_typ_from_name,
+    render_and_preprocess_page_in_memory,
+)
 
-tesseract_config = r'--oem 1 --psm 3' # Use LSTM mode (1) and Default Page Segmentation Mode (3)
-pymupdf_dpi = 300
+
+type DatasetRow = tuple[str, int, DocumentType, str, int]
+
+tesseract_config = (
+    r"--oem 1 --psm 3"  # Use LSTM mode (1) and Default Page Segmentation Mode (3)
+)
 
 os.makedirs(IMAGE_DIR, exist_ok=True)
-
 training_write_header = not os.path.exists(TRAINING_DATA_CSV)
 testing_write_header = not os.path.exists(TESTING_DATA_CSV)
 
-def normalize_image(image):
-    return cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
 
-def correct_skew(image):
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
+def get_data_from_pdf(page: int, doc) -> DatasetRow:
+    """
+    page -> 0-based page numbering
+    """
 
-    # Threshold the image
-    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    page_img = render_and_preprocess_page_in_memory(doc, page)
+    page_filename = f"{os.path.splitext(pdf_file)[0]}_page_{page}.png"
+    page_path = os.path.join(IMAGE_DIR, page_filename)
+    page_img.save(page_path, "PNG")
 
-    # Detect lines using Hough Line Transform
-    coords = np.column_stack(np.where(binary > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = 90 + angle
-    elif angle > 45:
-        angle = angle - 90
+    content = pytesseract.image_to_string(page_path, config=tesseract_config).strip()
+    content = clean_text(content)
+    content = content.replace("\n", " ")
+    row = (content, page == 0, doc_type, pdf_file, page)
 
-    (h, w) = gray.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, -angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    return rotated
+    return row
 
-def scale_image(image, ppi=300):
-    dpi_scale = ppi / 72
-    new_size = (int(image.width * dpi_scale), int(image.height * dpi_scale))
-    return image.resize(new_size, Image.LANCZOS)
 
-def remove_noise(image):
-    return cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
-
-def convert_to_grayscale(image):
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    return image
-
-def binarize_image(image):
-    gray = convert_to_grayscale(image)
-    binary = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    return binary
-
-def clean_text(text):
-    # Remove non-ASCII characters
-    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
-    # Replace multiple spaces with a single space
-    text = re.sub(r'\s+', ' ', text).strip()
-    # Remove extraneous punctuation
-    text = re.sub(r'[^a-zA-Z0-9.,;:\'"\-\s]', '', text)
-    return text
-
-with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_file, \
-     open(TESTING_DATA_CSV, mode='a', encoding='utf-8', newline='') as test_file:
-
+with (
+    open(TRAINING_DATA_CSV, mode="a", encoding="utf-8", newline="") as train_file,
+    open(TESTING_DATA_CSV, mode="a", encoding="utf-8", newline="") as test_file,
+):
     train_writer = csv.writer(train_file)
     test_writer = csv.writer(test_file)
 
+    headers = ["text", "is_first_page", "type", "file_name", "page_number"]
     if training_write_header:
-        train_writer.writerow(["text", "label", "file_name", "page_number"])
+        train_writer.writerow(headers)
     if testing_write_header:
-        test_writer.writerow(["text", "label", "file_name", "page_number"])
+        test_writer.writerow(headers)
 
     pdf_list = os.listdir(PDF_DIR)
     for i, pdf_file in enumerate(pdf_list):
         if not pdf_file.lower().endswith(".pdf"):
             continue
 
+        doc_type = get_doc_typ_from_name(pdf_file)
         pdf_path = os.path.join(PDF_DIR, pdf_file)
-        print(f"Processing {i + 1} / {len(pdf_list)}: {pdf_path}")
+        print(
+            f"Processing {list(TYPES.keys())[doc_type]} {i} / {len(pdf_list)}: {pdf_file}"
+        )
 
         try:
             doc = fitz.open(pdf_path)
@@ -108,65 +82,51 @@ with open(TRAINING_DATA_CSV, mode='a', encoding='utf-8', newline='') as train_fi
             doc.close()
             continue
 
-        def render_and_preprocess_page(doc, page_num):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=pymupdf_dpi)
-            img_data = pix.tobytes("png")
-            image = Image.open(io.BytesIO(img_data))
-
-            image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-
-            # Preprocessing steps
-            image = normalize_image(image)
-            image = correct_skew(image)
-            image = remove_noise(image)
-            image = binarize_image(image)
-
-            return Image.fromarray(image)
-
-        first_page_img = render_and_preprocess_page(doc, 0)
-        first_page_filename = f"{os.path.splitext(pdf_file)[0]}_page1.png"
-        first_page_path = os.path.join(IMAGE_DIR, first_page_filename)
-        first_page_img.save(first_page_path, "PNG")
-
-        # OCR for the first page
-        first_page_text = pytesseract.image_to_string(first_page_path, config=tesseract_config).strip()
-        # Post-process the extracted text
-        first_page_text = clean_text(first_page_text)
-        # Replace newlines with spaces
-        first_page_text = first_page_text.replace("\n", " ")
-        # Label = 1 for the first page
-        row = [first_page_text, 1, pdf_file, 1]
-        # print(row)
-
-        # Randomly assign to training or testing
-        if random.random() < TRAINING_PERCENTAGE:
-            train_writer.writerow(row)
-        else:
-            test_writer.writerow(row)
-
-        # If there's more than one page, pick a random other page
-        if len(doc) > 1:
-            random_page_num = random.randint(2, len(doc))  # 1-based page numbering
-            random_page_img = render_and_preprocess_page(doc, random_page_num - 1)
-            random_page_filename = f"{os.path.splitext(pdf_file)[0]}_page{random_page_num}.png"
-            random_page_path = os.path.join(IMAGE_DIR, random_page_filename)
-            random_page_img.save(random_page_path, "PNG")
-
-            # OCR for the random page
-            random_page_text = pytesseract.image_to_string(random_page_path).strip()
-            # Post-process the extracted text
-            random_page_text = clean_text(random_page_text)
-            # Replace newlines with spaces
-            random_page_text = random_page_text.replace("\n", " ")
-            # Label = 0 for the random page
-            row = [random_page_text, 0, pdf_file, random_page_num]
-
-            if random.random() < TRAINING_PERCENTAGE:
-                train_writer.writerow(row)
-            else:
-                test_writer.writerow(row)
-
-        doc.close()
+        # first_page_row = get_data_from_pdf(0, doc)
+        # training = random.random() < TRAINING_PERCENTAGE
+        # if training:
+        #     train_writer.writerow(first_page_row)
+        # else:
+        #     test_writer.writerow(first_page_row)
+        #
+        # # recursively find a page that isn't blank
+        # found = False
+        # if len(doc) > 1:
+        #     other_page_row = None
+        #     max_iterations = 10
+        #     i = 0
+        #     while not found:
+        #         i += 1
+        #         random_page_num = random.randint(2, len(doc)) - 1
+        #         print(f"random_page_num: {random_page_num}")
+        #         other_page_row = get_data_from_pdf(random_page_num, doc)
+        #
+        #         if (
+        #             # other_page_row[0] != ""
+        #             # and other_page_row[0] != None
+        #             False
+        #             or i >= max_iterations
+        #         ):
+        #             found = True
+        #         else:
+        #             # delete image file
+        #             os.remove(
+        #                 os.path.join(
+        #                     IMAGE_DIR,
+        #                     f"{os.path.splitext(pdf_file)[0]}_page_{random_page_num}.png",
+        #                 )
+        #             )
+        #
+        #         print(f"found: {found}")
+        #
+        #     if other_page_row is None:
+        #         continue
+        #
+        #     if training:
+        #         train_writer.writerow(other_page_row)
+        #     else:
+        #         test_writer.writerow(other_page_row)
+        #
+        # doc.close()
 
 print("Processing completed.")
