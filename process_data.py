@@ -82,51 +82,50 @@ with (
             doc.close()
             continue
 
-        # first_page_row = get_data_from_pdf(0, doc)
-        # training = random.random() < TRAINING_PERCENTAGE
-        # if training:
-        #     train_writer.writerow(first_page_row)
-        # else:
-        #     test_writer.writerow(first_page_row)
-        #
-        # # recursively find a page that isn't blank
-        # found = False
-        # if len(doc) > 1:
-        #     other_page_row = None
-        #     max_iterations = 10
-        #     i = 0
-        #     while not found:
-        #         i += 1
-        #         random_page_num = random.randint(2, len(doc)) - 1
-        #         print(f"random_page_num: {random_page_num}")
-        #         other_page_row = get_data_from_pdf(random_page_num, doc)
-        #
-        #         if (
-        #             # other_page_row[0] != ""
-        #             # and other_page_row[0] != None
-        #             False
-        #             or i >= max_iterations
-        #         ):
-        #             found = True
-        #         else:
-        #             # delete image file
-        #             os.remove(
-        #                 os.path.join(
-        #                     IMAGE_DIR,
-        #                     f"{os.path.splitext(pdf_file)[0]}_page_{random_page_num}.png",
-        #                 )
-        #             )
-        #
-        #         print(f"found: {found}")
-        #
-        #     if other_page_row is None:
-        #         continue
-        #
-        #     if training:
-        #         train_writer.writerow(other_page_row)
-        #     else:
-        #         test_writer.writerow(other_page_row)
-        #
-        # doc.close()
+        first_page_row = get_data_from_pdf(0, doc)
+        training = random.random() < TRAINING_PERCENTAGE
+        if training:
+            train_writer.writerow(first_page_row)
+        else:
+            test_writer.writerow(first_page_row)
+
+        # recursively find a page that isn't blank
+        found = False
+        if len(doc) > 1:
+            other_page_row = None
+            max_iterations = 10
+            i = 0
+            while not found:
+                i += 1
+                random_page_num = random.randint(2, len(doc)) - 1
+                print(f"random_page_num: {random_page_num}")
+                other_page_row = get_data_from_pdf(random_page_num, doc)
+
+                if (
+                    other_page_row[0] != ""
+                    and other_page_row[0] != None
+                    or i >= max_iterations
+                ):
+                    found = True
+                else:
+                    # delete image file
+                    os.remove(
+                        os.path.join(
+                            IMAGE_DIR,
+                            f"{os.path.splitext(pdf_file)[0]}_page_{random_page_num}.png",
+                        )
+                    )
+
+                print(f"found: {found}")
+
+            if other_page_row is None:
+                continue
+
+            if training:
+                train_writer.writerow(other_page_row)
+            else:
+                test_writer.writerow(other_page_row)
+
+        doc.close()
 
 print("Processing completed.")
