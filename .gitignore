@@ -8,3 +8,4 @@ after_norm.png
 example.hocr
 example.pdf
 __pycache__
+.venv

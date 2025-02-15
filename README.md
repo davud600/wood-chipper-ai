@@ -40,3 +40,7 @@ solutions:
 
 scratched idea for hocr, it's taking too long so i'll look into that after trained on more data and different types.
 if there are issues then i can compromise time to do hocr.
+
+- prot2:
+
+* too many lease renewals, model is overfitting.
