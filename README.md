@@ -44,3 +44,6 @@ if there are issues then i can compromise time to do hocr.
 - prot2:
 
 * too many lease renewals, model is overfitting.
+* maybe helping the model bias a little towards more common docs (e.g. lease renewals) is a good idea.
+* handle upside down pages.
+* 3 class classification (other, original, alias)

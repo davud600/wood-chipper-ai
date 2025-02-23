@@ -24,13 +24,20 @@ type_counters = {
     1: 0,
     2: 0,
     3: 0,
-    4: 0
+    4: 0,
+    5: 0,
+    6: 0,
+    7: 0,
+    8: 0,
+    9: 0,
+    10: 0,
+    11: 0,
 }
-for type in data['type'].tolist():
+for type in data["type"].tolist():
     type_counters[int(type)] += 1
 
 text_lens = []
-for text in data['text'].tolist():
+for text in data["text"].tolist():
     text_lens += [len(str(text))]
 # print(f"text lengths ({len(text_lens)}): {text_lens}")
 print(f"max text length: {max(text_lens)}")

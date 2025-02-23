@@ -7,7 +7,13 @@ import os
 from train_model import MultiTaskBertModel
 
 
-def predict(text, model, tokenizer, max_length=512, device="cpu"):
+def predict(
+    text: str,
+    model: MultiTaskBertModel,
+    tokenizer: BertTokenizer,
+    max_length: int = 512,
+    device: torch.device | str = "cpu",
+):
     inputs = tokenizer(
         text, return_tensors="pt", truncation=True, padding=True, max_length=max_length
     )
@@ -20,36 +26,30 @@ def predict(text, model, tokenizer, max_length=512, device="cpu"):
     with torch.no_grad():
         outputs = model(**inputs)
 
-    logits_first_page = outputs["logits_first_page"]
+    logits_page = outputs["logits_page"]
     logits_type = outputs["logits_type"]
-    probabilities_first_page = torch.softmax(logits_first_page, dim=1)
+    probabilities_page = torch.softmax(logits_page, dim=1)
     probabilities_type = torch.softmax(logits_type, dim=1)
 
-    return probabilities_first_page, probabilities_type
+    return probabilities_page, probabilities_type
 
 
 def evaluate_model(
-    predictions_first_page,
+    predictions_page,
     predictions_type,
-    true_labels_first_page,
+    true_labels_page,
     true_labels_type,
     texts,
     file_names,
     page_numbers,
 ):
-    true_labels_first_page = np.array(true_labels_first_page).flatten()
+    true_labels_page = np.array(true_labels_page).flatten()
     true_labels_type = np.array(true_labels_type).flatten()
 
-    print("Classification Report for First Page:")
-    print(
-        classification_report(
-            true_labels_first_page, predictions_first_page, labels=[0, 1]
-        )
-    )
-    print("Confusion Matrix for First Page:")
-    print(
-        confusion_matrix(true_labels_first_page, predictions_first_page, labels=[0, 1])
-    )
+    print("Classification Report for Page:")
+    print(classification_report(true_labels_page, predictions_first_page))
+    print("Confusion Matrix for Page:")
+    print(confusion_matrix(true_labels_page, predictions_first_page))
 
     print("Classification Report for Type:")
     print(classification_report(true_labels_type, predictions_type))
@@ -59,8 +59,8 @@ def evaluate_model(
     misclassified_rows = []
     for i, (pred_fp, label_fp, pred_type, label_type) in enumerate(
         zip(
-            predictions_first_page,
-            true_labels_first_page,
+            predictions_page,
+            true_labels_page,
             predictions_type,
             true_labels_type,
         )
@@ -69,8 +69,8 @@ def evaluate_model(
             misclassified_rows.append(
                 {
                     "file_name": file_names[i],
-                    "true_first_page": label_fp,
-                    "predicted_first_page": pred_fp,
+                    "true_page": label_fp,
+                    "predicted_page": pred_fp,
                     "true_type": label_type,
                     "predicted_type": pred_type,
                     "page_number": page_numbers[i],
@@ -81,7 +81,7 @@ def evaluate_model(
     with open("misclassified_rows.txt", "w", encoding="utf-8") as f:
         for row in misclassified_rows:
             f.write(
-                f"File: {row['file_name']}, Page: {row['page_number']}, True First Page: {row['true_first_page']}, Pred First Page: {row['predicted_first_page']}, True Type: {row['true_type']}, Pred Type: {row['predicted_type']}, Text: {row['text']}\n"
+                f"File: {row['file_name']}, Page: {row['page_number']}, True First Page: {row['true_page']}, Pred Page: {row['predicted_page']}, True Type: {row['true_type']}, Pred Type: {row['predicted_type']}, Text: {row['text']}\n"
             )
 
     print(
@@ -98,9 +98,9 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"The file {testing_data_csv} does not exist.")
 
     tokenizer = BertTokenizer.from_pretrained(model_output_dir)
-    num_types = pd.read_csv(testing_data_csv)[
-        "type"
-    ].nunique()  # Dynamically determine the number of types
+    # tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    # num_types = pd.read_csv(testing_data_csv)["type"].nunique()
+    num_types = 12
     base_model = BertModel.from_pretrained("bert-base-uncased")
     model = MultiTaskBertModel(base_model, num_types=num_types)
     state_dict = torch.load(os.path.join(model_output_dir, "pytorch_model.bin"))
@@ -110,23 +110,21 @@ if __name__ == "__main__":
     data = pd.read_csv(testing_data_csv)
     if (
         "text" not in data.columns
-        or "is_first_page" not in data.columns
+        or "page" not in data.columns
         or "type" not in data.columns
     ):
-        raise ValueError(
-            "CSV must contain 'text', 'is_first_page', and 'type' columns."
-        )
+        raise ValueError("CSV must contain 'text', 'page', and 'type' columns.")
 
     data["text"] = data["text"].astype(str).fillna("")
     texts = data["text"].tolist()
-    labels_first_page = data["is_first_page"].tolist()
+    labels_page = data["page"].tolist()
     labels_type = data["type"].tolist()
     file_names = data["file_name"].tolist()
     page_numbers = data["page_number"].tolist()
 
-    predictions_first_page = []
+    predictions_page = []
     predictions_type = []
-    valid_labels_first_page = []
+    valid_labels_page = []
     valid_labels_type = []
     valid_texts = []
     valid_file_names = []
@@ -138,20 +136,20 @@ if __name__ == "__main__":
             continue
 
         probs_fp, probs_type = predict(text, model, tokenizer, device=device)
-        predictions_first_page.append(np.argmax(probs_fp.cpu().numpy()))
+        predictions_page.append(np.argmax(probs_fp.cpu().numpy()))
         predictions_type.append(np.argmax(probs_type.cpu().numpy()))
-        valid_labels_first_page.append(labels_first_page[i])
+        valid_labels_page.append(labels_page[i])
         valid_labels_type.append(labels_type[i])
         valid_texts.append(text)
         valid_file_names.append(file_names[i])
         valid_page_numbers.append(page_numbers[i])
 
-    predictions_first_page = np.array(predictions_first_page)
+    predictions_first_page = np.array(predictions_page)
     predictions_type = np.array(predictions_type)
     evaluate_model(
         predictions_first_page,
         predictions_type,
-        valid_labels_first_page,
+        valid_labels_page,
         valid_labels_type,
         valid_texts,
         valid_file_names,

@@ -1,6 +1,8 @@
 from PIL import Image
 from enum import Enum
+from cv2.typing import MatLike
 import numpy as np
+import pytesseract
 import fitz  # PyMuPDF
 import cv2
 import io
@@ -8,6 +10,9 @@ import re
 
 
 pymupdf_dpi = 300
+# pymupdf_dpi = 72
+EDGE_CASES_FILE_PATH = "./bad_files.txt"
+PAGE_SIMILARITY_THRESHOLD = 0.7
 PDF_DIR = "pdfs"
 IMAGE_DIR = "pdf_images"
 TRAINING_DATA_CSV = "training_data.csv"
@@ -29,6 +34,12 @@ TYPES = {
 }
 
 
+class PageType(Enum):
+    OTHER = 0
+    ORIGINAL = 1
+    ALIAS = 2
+
+
 class DocumentType(Enum):
     UNKNOWN = 0
     ORIGINAL_LEASE = 1
@@ -44,35 +55,46 @@ class DocumentType(Enum):
     TRANSFER_DOCUMENT = 11
 
 
-def get_doc_type_from_name(file_name: str) -> DocumentType:
+class EdgeCases(Enum):
+    START = r"start\((\d+)\)"
+    ALIAS = r"alias\((\d+)\)"
+    DELETE = "delete"
+    AGREEMENT = "agreement"
+    SUBLEASE = "sublease"
+
+
+def get_doc_type_from_name(file_name: str) -> int:
     if "sublease" in file_name.lower():
-        return TYPES["sublease"]
+        return DocumentType.SUBLEASE.value
     elif "closing" in file_name.lower():
-        return TYPES["closing-document"]
+        return DocumentType.CLOSING_DOCUMENT.value
     elif "correspondence" in file_name.lower():
-        return TYPES["tenant-correspondence"]
+        return DocumentType.TENANT_CORRESPONDENCE.value
     elif "lease renewal" in file_name.lower():
-        return TYPES["lease-renewal"]
+        return DocumentType.LEASE_RENEWAL.value
     elif "lease" in file_name.lower():
-        return TYPES["original-lease"]
+        return DocumentType.ORIGINAL_LEASE.value
     elif "alteration" in file_name.lower():
-        return TYPES["alteration-document"]
+        return DocumentType.ALTERATION_DOCUMENT.value
     elif "renovation" in file_name.lower():
-        return TYPES["renovation-document"]
+        return DocumentType.RENOVATION_DOCUMENT.value
     elif "proprietary lease" in file_name.lower():
-        return TYPES["proprietary-lease"]
+        return DocumentType.PROPRIETARY_LEASE.value
     elif "purchase application" in file_name.lower():
-        return TYPES["purchase-application"]
+        return DocumentType.PURCHASE_APPLICATION.value
     elif "refinance document" in file_name.lower():
-        return TYPES["refinance-document"]
+        return DocumentType.REFINANCE_DOCUMENT.value
     elif "transfer document" in file_name.lower():
-        return TYPES["transfer-document"]
+        return DocumentType.TRANSFER_DOCUMENT.value
     else:
-        return TYPES["unknown"]
+        return DocumentType.UNKNOWN.value
 
 
-def normalize_image(image):
-    return cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+def normalize_image(image: MatLike) -> MatLike:
+    dst = np.zeros_like(image)
+    return cv2.normalize(
+        image, dst, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
+    )
 
 
 def correct_skew(image):
@@ -98,23 +120,29 @@ def correct_skew(image):
     return rotated
 
 
-def scale_image(image, ppi=300):
-    dpi_scale = ppi / 72
-    new_size = (int(image.width * dpi_scale), int(image.height * dpi_scale))
-    return image.resize(new_size, Image.LANCZOS)
+# def scale_image(image, ppi=300):
+#     dpi_scale = ppi / 72
+#     new_size = (int(image.width * dpi_scale), int(image.height * dpi_scale))
+#     return image.resize(new_size, Image.LANCZOS)
 
 
-def remove_noise(image):
-    return cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
+def remove_noise(image: MatLike) -> MatLike:
+    return cv2.fastNlMeansDenoisingColored(
+        image,
+        h=5,
+        hColor=5,
+        templateWindowSize=7,
+        searchWindowSize=21,
+    )
 
 
-def convert_to_grayscale(image):
+def convert_to_grayscale(image: MatLike) -> MatLike:
     if len(image.shape) == 3 and image.shape[2] == 3:
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return image
 
 
-def binarize_image(image):
+def binarize_image(image: MatLike) -> MatLike:
     gray = convert_to_grayscale(image)
     binary = cv2.adaptiveThreshold(
         gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
@@ -122,7 +150,7 @@ def binarize_image(image):
     return binary
 
 
-def clean_text(text):
+def clean_text(text: str) -> str:
     # Remove non-ASCII characters
     text = re.sub(r"[^\x00-\x7F]+", " ", text)
     # Replace multiple spaces with a single space
@@ -132,17 +160,64 @@ def clean_text(text):
     return text
 
 
+def detect_rotation(image: MatLike) -> tuple[int, float]:
+    """Detect if the image is rotated based on OCR text orientation."""
+
+    osd = pytesseract.image_to_osd(image)
+    angle = int(osd.split("Rotate: ")[1].split("\n")[0])
+    confidence = float(osd.split("Orientation confidence: ")[1].split("\n")[0])
+
+    return angle, confidence
+
+
+def correct_rotation(
+    image: MatLike,
+) -> MatLike:
+    """Corrects the rotation based on detected text orientation."""
+
+    angle, confidence = detect_rotation(image)
+    for _ in range(4):
+        if confidence >= 3.0:
+            break
+
+        image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+        try:
+            angle, confidence = detect_rotation(image)
+        except:
+            continue
+
+    if angle == 90:
+        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    elif angle == 270:
+        return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    elif angle == 180:
+        return cv2.rotate(image, cv2.ROTATE_180)
+
+    return image
+
+
 def render_and_preprocess_page_in_memory(doc: fitz.open, page_num: int):
     page = doc.load_page(page_num)
     pix = page.get_pixmap(dpi=pymupdf_dpi)
     img_data = pix.tobytes("png")
     image = Image.open(io.BytesIO(img_data))
-    image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
+
+    try:
+        image = correct_rotation(image)
+    except Exception as e:
+        print(e)
 
     # Preprocessing steps
-    image = normalize_image(image)
+    # image = normalize_image(image)
     # image = correct_skew(image)
     # image = remove_noise(image)
-    image = binarize_image(image)
+    # image = binarize_image(image)
+    # image = cv2.adaptiveThreshold(
+    #     image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 8
+    # )
 
-    return Image.fromarray(image)
+    array_image = Image.fromarray(image)
+    # array_image.thumbnail((1920, 1080))
+    return array_image
+    # return image
