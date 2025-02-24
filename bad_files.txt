@@ -278,3 +278,259 @@ delete:Angela Jimenez - CM for Lease Renewal 2019.pdf
 alias(2):Angela Jimenez Signed 2019-2021 Lease Renewal.pdf
 alias(2):B. Demaris & D. Dror Signed 2020-2021 Lease Renewal.pdf
 alias(2):Beatrice Frey & Suzanne Obolsky 2020 Lease Renewal.pdf
+type:closing-document
+delete:10A - App and Closing Docs - Nov 24, 2015 - FoxHawkins from JohnsonBunton.pdf
+delete:10A - Closing Documents - 09-20-2024 - Huang & Wu.pdf
+alias(3):11 Hancock Pl . - 805 closing document.pdf
+delete:11 Hancock Place-601 - Closing Docs 2-7-2022 - Dogan.pdf
+delete:133 2nd - Closing Documents - Milch to Cho - 12-20-19.pdf
+delete:14 - Closing Documents - 07-26-2018 - Nguyen Ventures.pdf
+delete:14F - Closing Documents - 09-10-2024 - Marandella.pdf
+delete:15F - Closing Documents - 11-17-2003 - Dambra.pdf
+delete:16 - Closing Documents - 03-05-2009 - Benassi.pdf
+delete:16 - Closing Documents - 11-14-2018 - Bonetti.pdf
+delete:16 - Closing Documents - 12-03-2018 - Bonetti.pdf
+alias(2):175 - 9A - CLOSING DOCS.pdf
+alias(3):#175 - Unit 2C Closing Documents.pdf
+delete:17C - Closing Documents - 09-17-2024 - 57 Carlton Services LLC.pdf
+start(4):199 9D Closing Docs.pdf
+delete:1AB - Closing Documents.pdf
+delete:1AB - Sabowitz to Li - App + Closing Docs + Sublet Renewal - 2005-2007.pdf
+alias(2):1A - Closing Documents - 05-17-2013 - Salamina.pdf
+delete:1A - Closing Documents - 05-29-2007 - Berlin.pdf
+delete:1A - Closing Documents - 06-24-2024 - Sosnina.pdf
+alias(2):1B2A - Closing Docs - Cooper from Figuera - 3-13-2020.pdf
+delete:2 E 80th - Mortgage Closing - 06-20-1993.pdf
+delete:2 E 80th - Refinance Closing - 06-07-1993.pdf
+delete:2 E 80th - Refinancing Closing Docs - 2003.pdf
+delete:2E - Closing Documents - 01-30-2007 - Yerman.pdf
+delete:2E - Closing Documents - 04-30-2010 - Moll.pdf
+delete:2F - Closing Documents - 12-15-2009 - Tausig.pdf
+delete:2G - Closing Documents - 10-30-2009 - Levy & Perle.pdf
+alias(4):2H - Closing Documents - 12-22-2008 - Gabor.pdf
+delete:2nd closing docs.pdf
+delete:301 - Closing Documents - 09-01-2023 - Stepansky.pdf
+delete:304 Copy of closing checks.pdf
+delete:304 E 73 1A Closing Levy 2.pdf
+delete:304 E 73 1A Closing Levy.pdf
+delete:304 E 73 2A Closing Docs.pdf
+delete:304 E 73 Original Closing Report, Refinancing of underlying mortgage.pdf
+delete:304 E 73rd - apt 3 EF - Roy Closing papers.pdf
+delete:304 Refi Closing payout letter.pdf
+delete:304. Title insurance closing statement & Sovereign bank invoice pdf.pdf
+alias(2):#3A Closing Docs.pdf
+delete:3A - Closing Docs - Welper from Hildreth - 11-23-20.pdf
+alias(3):3A - Closing Documents - 05-08-2007 - Butoi.pdf
+delete:3B_4B - Closing Documents - 05-22-2024 - Ullman.pdf
+delete:3B - Closing Docs - Price from Murphy.pdf
+delete:3B - Closing Documents - 06-19-2015 - Rossoff.pdf
+delete:3B - Closing Documents - 06-28-2007 - Silverman.pdf
+delete:3B - Closing Documents - 08-17-2022 - Jones.pdf
+delete:3C - Closing Documents - 01-15-2024 - Taheri.pdf
+alias(3):3C - Closing Documents - 03-05-2007 - Foulke & Leshinsky.pdf
+agreement:3C - Closing Documents - 03-22-1985 - Toevs.pdf
+delete:3C - Closing Documents - 07-14-2023 - KatHelly LLC.pdf
+alias(2):3 - Closing Documents - 07-17-2023 - Thim Sas.pdf
+delete:3D - Closing Documents - 01-26-2007 - Hickman.pdf
+delete:3D - Closing Documents - 12-13-2013 - Latten.pdf
+alias(4):3F - Closing Documents - 12-17-2009 - Keller.pdf
+alias(4):3G - Closing Documents - 09-21-2009 - Reilly.pdf
+delete:3S - Closing Docs - Steward,Kimberly Leonard from Blake Leonard - 4.6.2021.pdf
+delete:3 W. 122 4B closing documents - Robinson.pdf
+delete:3 West 122nd Street, Apt. 6B - Closing Docs.pdf
+delete:3 West 122nd, Unit 1C - Closing Docs - Wang.pdf
+delete:3 West 122nd, Unit 4B closing statement - Nudelman.pdf
+delete:457 - 4B - Closing Docs - Talts from Yin - April 2021.pdf
+delete:457 Atlantic Av - 3D - closing papers.pdf
+alias(2):#4A Closing Docs.pdf
+alias(3):4A - Closing Documents - 01-16-2009 - Dressler.pdf
+delete:4A - Closing Documents - 07-31-2017 - Chianese & Wang.pdf
+alias(5):4B - Closing Documents - 06-27-2007 - Salamon.pdf
+alias(2):#4B Closing Documents.pdf
+alias(3):4C - Closing Documents - 02-14-2007 - SJA 2005 Limited.pdf
+alias(2):#4C Closing.pdf
+delete:4 - Closing Documents - 06-07-2024 - J&J Smyth LLC.pdf
+alias(3):4D - Closing Documents - 02-01-2007 - Madinaveitia.pdf
+delete:#4D & P2 Closing Docs.pdf
+delete:4E - Closing Documents - 08-12-2010 - Remyn & Romero.pdf
+delete:4E - Closing Documents - 10-26-2007 - Edwards & DeWald.pdf
+alias(2):#4F Closing Docs.pdf
+delete:4F - Closing Documents - 06-11-2015 - Kapadia.pdf
+alias(4):4G - Closing Documents - 08-26-2009 - Janghorbani.pdf
+delete:54218 Closing Invoice 9-19-2022.pdf
+delete:596 Edgecombe Rent Roll for Closing_copy as of 5.23.22 (1).pdf
+delete:5A - App and Closing Docs 1-15-2015 - Yaraghi from Mandlay.pdf
+delete:5A - Closing Docs - Chan from Clemente - 6-10-2021.pdf
+delete:5A - Closing Docs - Hinshaw and Manley - 11-9-2012.pdf
+alias(2):#5A Closing Docs.pdf
+alias(2):5A - Closing Documents - 07-02-2007 - Feig.pdf
+delete:5A - Closing Documents - 12-05-2020 - Loh.pdf
+delete:5A - Yaraghi Closing Sec 1.24-1,25.pdf
+delete:5B - App + Closing Docs - YooPaiji - Oct 2015.pdf
+delete:5B - Closing Doc - Byles from Seltzer - 2013.pdf
+alias(2):#5B Closing Docs.pdf
+delete:5B - Closing Docs - Zheng from YooPaiji - 1-27-2021.pdf
+delete:5B - Closing Documents - 02-01-2007 - Kim.pdf
+alias(2):5B - Closing Documents - 11-03-2014 - Man.pdf
+alias(2):#5C Closing Docs.pdf
+delete:5C - Closing Documents - 03-09-2007 - Callender.pdf
+delete:5D - Closing Docs (2019).pdf
+alias(2):5D - Closing Documents - 09-22-2015 - Troubh.pdf
+delete:5E closing.pdf
+alias(3):5F - Closing Documents - 04-10-2008 - Mazur.pdf
+alias(2):5F - Closing Documents - 07-30-2009 - Janklow & Ferber.pdf
+delete:5F closing power of attorney.pdf
+alias(4):5G - Closing Documents - 06-18-2009 - Arkhipenko & Petrova.pdf
+delete:684 Greenwich Closing Statement.pdf
+delete:6A - Closing Docs Thomas from Dahlgren - 12-23-2020.pdf
+delete:6A - Closing Documents - 03-24-2014 - Francis.pdf
+delete:6A - Closing Documents - 12-08-2005 - Kurek.pdf
+alias(4):6A - Closing Documents - 12-22-2008 - Mills & Swenson.pdf
+delete:#6B Closing Doc.pdf
+alias(3):#6B Closing Docs.pdf
+alias(3):6B - Closing Documents - 02-07-2007 - Bowman.pdf
+delete:#6B Closing.pdf
+alias(2):#6C Closing Docs.pdf
+delete:6C - Closing Documents - 06-12-2012 - Carrasco.pdf
+delete:6C - Closing Documents - 10-29-2007 - Monning.pdf
+delete:6 - Closing Documents - 07-15-2024 - International City Developers LLC.pdf
+alias(3):6D - Closing Documents - 10-07-2009 - Santora.pdf
+alias(2):#6F Closing Docs.pdf
+alias(3):706- Apt Sale Closing Docs 10-14-2021 - Peng and Wu.pdf
+delete:7AB - Closing Documents - 11-22-2010 - Maggio.pdf
+delete:7AB - Closing Documents - 12-17-2010 - Maggio.pdf
+delete:7A - Closing Docs - 11-24-2008 - LenziTsurumaki.pdf
+delete:7A - Closing Documents - 1-10-2023 - Shah.pdf
+delete:7A - Closing Documents - 12-12-2006 - Gordon.pdf
+delete:7B - Closing Documents - 07-27-2007 - Hirschkron & Merwin.pdf
+delete:7B Closing Statement Fung.pdf
+alias(3):7C - Closing Documents - 04-10-2008 - Mazur.pdf
+delete:7C - Closing Documents - 08-02-2016 - Kranz.pdf
+delete:7C - Closing of 7C - 08-25-2006 - Malya.pdf
+delete:7 - Closing Documents - 05-01-2024 - See & Wei.pdf
+alias(3):7D - Closing Documents - 10-01-2009 - Santora.pdf
+alias(5):802 - Closing Documents - 09-10-2024 - Wright.pdf
+alias(4):809 - Closing Documents - 03-25-2024 - Vinson-Watson.pdf
+alias(2):83-85 First Ave 3B Closing.pdf
+delete:83-85 First Ave Closing Statement Part 2.pdf
+delete:83-85 First Ave Closing Statement.pdf
+delete:83-85 First Ave Memorandum of Closing 12.22.2016.pdf
+delete:84 Bedford-1S Closing Documents.pdf
+delete:84 Bedford-2R Closing documents.pdf
+delete:84 Bedford-2S-Brookton Closing Documents.pdf
+delete:84 Bedford Closing Docs-3N-Occident.pdf
+delete:84 Bedford Closing docs-4S Polyester.pdf
+delete:84 Bedford Closing Statement-2R-Bedford@Village.pdf
+delete:84 Bedford Closing Statement-4S.pdf
+delete:84 Bedford-Unit 3S Closing Documents.pdf
+delete:8A - Closing Docs for Schnitzer from Mulhearn Sale - 2007.pdf
+delete:8A Closing Docs.pdf
+alias(4):8A - Closing Documents - 07-30-2007 - Ment & Sayles.pdf
+delete:8A - Purchase Application - Closing Docs - 1-15-2015 - MillarKehlor.pdf
+delete:8B - Permit Closing.pdf
+delete:8C - Closing Documents - 01-24-2007 - Witten.pdf
+delete:8D - Closing Documents - 02-26-1986 - Sengoku & Ohira.pdf
+alias(4):902 - Closing Documents - 06-01-2023 - Hernandez.pdf
+alias(2):903 closing documents 10-15-2021 - Momah.pdf
+alias(3):907 - Closing Documents - 08-15-2023 - Kozato.pdf
+type:sublease
+alias(3):10 - Sublease from 03-29-2021 to 03-28-2022 - Kincade.pdf
+alias(2):10 - Sublease from 05-27-2019 to 05-26-2021 - Bloch.pdf
+FORGOT ONE HERE...
+start(3):11C - Standard Form of Cooperative Apartment Sublease from 8-15-2012 to 8-14-2013 - Forest.pdf
+alias(3):12A - Sublease from 02-01-2021 to 04-30-2022 - Parke.pdf
+alias(4):14 - Sublease from 05-01-2022 to 04-30-2023 - McGowan.pdf
+alias(6):14 - Sublease from 09-01-2019 to 08-30-2020 - Goheen.pdf
+delete:16A - Sublease from 02-04-2010 to 01-31-2011 - Kersey.pdf
+delete:16 - Sublease from 01-15-2008 to 01-15-2009 - Ciardullo.pdf
+delete:16 - Sublease from 05-01-2020 to 04-30-2021 - Lettiere.pdf
+alias(4):16 - Sublease from 08-24-2019 to 08-23-2020 - Schaumann.pdf
+alias(4):17 - Sublease from 02-15-2020 to 02-14-2021 - Alonso.pdf
+alias(4):18 - Sublease from 10-21-2022 to 10-20-2023 - Beckhardt.pdf
+alias(3):19 - Sublease from 05-15-2022 to 05-14-2023 - McGrath.pdf
+delete:1A - End of Sublease Agreement - 01-08-2008 - Esposito.pdf
+alias(2):292_Riverside_Drive_Owners_Corp 2c sublease agreement.pdf
+alias(2):1A - Sublease from 08-15-2017 to 08-14-2018 - Beddie & Wurfel.pdf
+delete:1C - BoyleOliveri from vanBlerck - Coop Sublease Application - 11-10-2017.pdf
+delete:1C - Sublease Agreement 10-9-19.pdf
+start(3):20160726144409266112672--225-3C- Signed sublease agreement.pdf
+alias(3):292 riverside 4a sublease.pdf
+alias(2):292_Riverside_Drive_Owners_Corp 2c sublease agreement.pdf
+delete:2A - Sublease to HansonSimon from Mandez.pdf
+alias(3):2BR - James Reid Sublease Exp 4-30-20 starting 4-15-19.pdf
+delete:304 E 73 1B Lopez, Labelle Sublease.pdf
+delete:304 E 73 1E Chin Sublease Agreement.pdf
+delete:304 E 73 3A Sublease Agreement, Application for Occupancy 2.pdf
+delete:304 E 73 3A Sublease Agreement, Application for Occupancy.pdf
+start(3):304 E 73 3D Berg Sublease.pdf
+delete:304 E 73 3D Sublease.pdf
+delete:304 E 73 4E Proprietary Lease Sublease Agreement Saltzman 10.27.1993.pdf
+alias(5):304 E 73 5D Dunn Sublease Application 9.15.2009.pdf
+delete:304 E 73 5D Sublease Mary Woodward.pdf
+start(4):304 E 73 A Wiig Sublease.pdf
+alias(5):321 E 71, 2D, Fredric Bloom, Sublease Application.pdf
+alias(6):321 E 71, 3A, Christina Connor, Sublease Application.pdf
+agreement:321 E 71, 3A, Reileen O Raymundo, Sublease.pdf
+alias(2):321 E 71, 3C, Robert Booz and Peter Katz, Sublease Application and Leases.pdf
+alias(3):321 E 71, 3D, Elizabeth J. Lee, Sublease Application.pdf
+delete:321 E 71, 3D, Elizabeth J. Lee, Sublease.pdf
+delete:321 E 71, 3F, Jason Chih-Peng Chang, Sublease Application.pdf
+delete:321 E 71, 3G, Jeremy Lebow, Sublease Application.pdf
+alias(2):321 E 71, 5C,Maria Hernandez, Sublease Application.pdf
+delete:321 E 71, 5E, Ann Stoney, Sale and Sublease Documents.pdf
+alias(5):321 E 71-5E- Sublease Renewal 11-9-2021- Trujillo.pdf
+alias(3):321 E 71, 5G, Khaled Haram, Sublease Info.pdf
+delete:321 E 71, 5H, Chanda Noble, Sublease Application.pdf
+alias(3):333 E 46th - 12E - Sublease renewal ending 6-30-18.pdf
+alias(3):333 E 46th - 2E - Sublease renewal ending 8-31-18.pdf
+alias(4):321 Sublease complete 10-25.pdf
+delete:3AB - Sublease Agreement Documents - 2003 to 2005 - Milton.pdf
+alias(2):3A - Sublease from 05-19-2014 to 05-19-2015 - Dobrosevic.pdf
+start(2):3F - Sublease from 09-01-2022 to 09-30-2022 - Worcelo.pdf
+alias(3):3F - Sublease from 11-15-2018 to 11-14-2019 - Morgan.pdf
+delete:3J Cover Letter for Sublease Application.pdf
+delete:406 - Sublease Renewal from 10-1-2014 to 9-30-2015 - ScharfRowe.pdf
+delete:4-6 West 108th Street-3 - Sublease Application - Sun, Liu & Dai.pdf
+delete:4A Ditzion Sublease Agreement 6-5-21 to 8-15-21.pdf
+delete:4A - Historic Sublease Docs - 1998-1990.pdf
+delete:4B Cover Letter for Sublease Application.pdf
+delete:4E - Notice of Sublease - Tran from Kaynan - 6-15-2011.pdf
+alias(3):4F - Application to Sublease Apartment - 08-15-1988 to 08-14-1989 - Klopacz.pdf
+alias(2):4 - Sublease from 05-08-2021 to 05-31-2022 - Sinegal.pdf
+alias(3):4 - Sublease from 08-01-2019 to 07-31-2020 - Koh.pdf
+delete:502_9 ave_9B_Rider to Sublease.pdf
+delete:59 Barrow Street, Complete Sublease Application 6-10-2016.pdf
+alias(2):5A Sublease Agreement 3.29.2005.pdf
+alias(2):5A - Sublease from 09-07-2013 to 08-21-2015 - Abir.pdf
+alias(3):5 - Sublease from 02-07-2022 to 06-30-2022 - Sard.pdf
+delete:6A - Sublease Extension.pdf
+delete:6A - Sublease from 02-15-2013 to 02-14-2014 - Smith.pdf
+alias(2):6A - Sublease from 07-01-2017 to 07-01-2018 - Conwell.pdf
+delete:7C - Sublease from 07-01-2013 to 06-30-2014 - Sakai.pdf
+delete:8B Sublease.pdf
+alias(3):Application - Commercial Sublease.pdf
+delete:Assignment of Subleases.pdf
+delete:Baier Sublease Request.pdf
+delete:commercial sublease Apr 09 (002).pdf
+delete:complete sublease application.pdf
+delete:Cover Letter for Sublease Application (1) (1).docx.pdf
+alias(2):Ellen Metzner Sublease Application.pdf
+start(2):Extension of Sublease 2015-2017.pdf
+start(2):Extension of Sublease & Lease Renewal Applications.pdf
+delete:gentry_sublease_fee_new_policy.docx.pdf
+delete:Joel  W. Sublease 3-1-18.pdf
+agreement:Joel W. Sublease 3-1-18.pdf
+delete:L. Mackman confirming sublease ext.pdf
+delete:L. Mackman sublease cover letter.pdf
+delete:L. Mackman sublease processing fee.pdk
+delete:Proposed Sublease from Marson Trust - 2004.pdf
+delete:SUBLEASE APPLICATION- 160.pdf
+delete:Sublease Application_321 E 71st Street 2E_Taylor Breit.pdf
+delete:Sublease Application Docs - Makman - 1995.pdf
+delete:Sublease Application, Downtown.pdf
+delete:Sublease Application.pdf
+delete:sublease.docx.pdf
+delete:Sublease Smargiassi to Blitstein.pdf
+delete:Suffolk Homes Unit A Lam Yan Request For Sublease.pdf
+delete:Tax Pages from 7048 Outreach SubLease Abstract.pdf
+alias(2):Zina & Kevin Kennedy Sublease Application.pdf

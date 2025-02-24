@@ -147,7 +147,7 @@ if __name__ == "__main__":
     type_errors = [0 for _ in list(TYPES.keys())]
     open_errors = [0 for _ in list(TYPES.keys())]
     no_pages = [0 for _ in list(TYPES.keys())]
-    max_count_per_type = 300
+    max_count_per_type = 200
     edge_case_files = get_edge_cases(edge_cases_file_path=EDGE_CASES_FILE_PATH)
     with (
         open(TRAINING_DATA_CSV, mode="a", encoding="utf-8", newline="") as train_file,
@@ -163,7 +163,7 @@ if __name__ == "__main__":
             test_writer.writerow(headers)
 
         for doc_type in TYPES.values():
-            if doc_type != 1 and doc_type != 2:
+            if doc_type != 3:
                 continue
 
             pdf_list = os.listdir(f"{PDF_DIR}/{doc_type}")
@@ -233,10 +233,13 @@ if __name__ == "__main__":
 
                 alias_page_row = None
                 if alias_page_num is not None:
-                    alias_page_row = get_data_from_pdf(
-                        alias_page_num, PageType.ALIAS.value, doc_type, doc
-                    )
-                    (train_writer if training else test_writer).writerow(alias_page_row)
+                    if alias_page_num < original_page_num:
+                        alias_page_row = get_data_from_pdf(
+                            alias_page_num, PageType.ALIAS.value, doc_type, doc
+                        )
+                        (train_writer if training else test_writer).writerow(
+                            alias_page_row
+                        )
 
                 other_page_row = get_other_page_data_from_pdf(
                     doc,
