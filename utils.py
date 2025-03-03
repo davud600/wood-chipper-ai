@@ -1,13 +1,26 @@
+from typing import Dict
 from PIL import Image
 from enum import Enum
 from cv2.typing import MatLike
 import numpy as np
 import pytesseract
+import random
 import fitz  # PyMuPDF
 import cv2
+import csv
 import io
 import re
 
+
+max_length = 3064
+pages_to_append = 5
+training_mini_batch_size = 6
+testing_mini_batch_size = 6
+learning_rate = 0.000025
+weight_decay = 0.01
+epochs = 50
+log_steps = 10
+eval_steps = 50
 
 pymupdf_dpi = 300
 # pymupdf_dpi = 72
@@ -34,10 +47,8 @@ TYPES = {
 }
 
 
-class PageType(Enum):
-    OTHER = 0
-    ORIGINAL = 1
-    ALIAS = 2
+type DatasetMiniBatch = Dict[str, list[str] | list[int]]
+type Dataset = list[DatasetMiniBatch]
 
 
 class DocumentType(Enum):
@@ -221,3 +232,69 @@ def render_and_preprocess_page_in_memory(doc: fitz.open, page_num: int):
     # array_image.thumbnail((1920, 1080))
     return array_image
     # return image
+
+
+def get_dataset(path: str, mini_batch_size: int) -> Dataset:
+    data: list[tuple[str, int, int, str]] = []
+    dataset: Dataset = []
+    contents = []
+    pages = []
+    with open(file=path, mode="r", encoding="utf-8") as file:
+        reader = csv.reader(file)
+        for r, row in enumerate(reader):
+            if r == 0:  # skip headers.
+                continue
+
+            if int(row[2]) != 2:  # temp: only lease renewals.
+                continue
+
+            data += [(str(row[0]), int(row[1]), int(row[2]), str(row[3]))]
+
+    for r, row in enumerate(data):
+        content = row[0]
+        page = row[1]
+        # type = row[2]
+        file = row[3]
+
+        if page != 1 and random.random() > 0.2:
+            continue
+
+        content = f"<curr_page>{content}</curr_page>"
+        for next in range(1, pages_to_append + 1):
+            if r - next < 0 or data[r - next][3] != file:
+                break
+
+            content += f"<next_page_{next}>{data[r - next][0]}</next_page_{next}>"
+
+        pages += [page]
+        contents += [content]
+
+    mini_batch_features: list[str] = []
+    mini_batch_labels: list[int] = []
+    counter = 0
+    for features, labels in zip(contents, pages):
+        if counter >= mini_batch_size:
+            dataset.append(
+                {
+                    "features": mini_batch_features,
+                    "labels": mini_batch_labels,
+                }
+            )
+
+            mini_batch_features = []
+            mini_batch_labels = []
+            counter = 0
+
+        mini_batch_features.append(features)
+        mini_batch_labels.append(labels)
+        counter += 1
+
+    if mini_batch_features:
+        dataset.append(
+            {
+                "features": mini_batch_features,
+                "labels": mini_batch_labels,
+            }
+        )
+
+    return dataset
