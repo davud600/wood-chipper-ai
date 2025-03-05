@@ -16,9 +16,9 @@ max_length = 3064
 pages_to_append = 5
 training_mini_batch_size = 6
 testing_mini_batch_size = 6
-learning_rate = 0.000025
+learning_rate = 0.000005
 weight_decay = 0.01
-epochs = 50
+epochs = 5
 log_steps = 10
 eval_steps = 50
 
@@ -72,33 +72,6 @@ class EdgeCases(Enum):
     DELETE = "delete"
     AGREEMENT = "agreement"
     SUBLEASE = "sublease"
-
-
-def get_doc_type_from_name(file_name: str) -> int:
-    if "sublease" in file_name.lower():
-        return DocumentType.SUBLEASE.value
-    elif "closing" in file_name.lower():
-        return DocumentType.CLOSING_DOCUMENT.value
-    elif "correspondence" in file_name.lower():
-        return DocumentType.TENANT_CORRESPONDENCE.value
-    elif "lease renewal" in file_name.lower():
-        return DocumentType.LEASE_RENEWAL.value
-    elif "lease" in file_name.lower():
-        return DocumentType.ORIGINAL_LEASE.value
-    elif "alteration" in file_name.lower():
-        return DocumentType.ALTERATION_DOCUMENT.value
-    elif "renovation" in file_name.lower():
-        return DocumentType.RENOVATION_DOCUMENT.value
-    elif "proprietary lease" in file_name.lower():
-        return DocumentType.PROPRIETARY_LEASE.value
-    elif "purchase application" in file_name.lower():
-        return DocumentType.PURCHASE_APPLICATION.value
-    elif "refinance document" in file_name.lower():
-        return DocumentType.REFINANCE_DOCUMENT.value
-    elif "transfer document" in file_name.lower():
-        return DocumentType.TRANSFER_DOCUMENT.value
-    else:
-        return DocumentType.UNKNOWN.value
 
 
 def normalize_image(image: MatLike) -> MatLike:
@@ -245,15 +218,24 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
             if r == 0:  # skip headers.
                 continue
 
-            if int(row[2]) != 2:  # temp: only lease renewals.
+            if (
+                int(row[2]) != 1
+                and int(row[2]) != 2
+                and int(row[2]) != 3
+                and int(row[2]) != 4
+                and int(row[2]) != 5
+            ):  # temp:
                 continue
 
             data += [(str(row[0]), int(row[1]), int(row[2]), str(row[3]))]
 
+    type_counters = [
+        {"first_page": 0, "not_first_page": 0} for _ in range(len(TYPES.keys()))
+    ]
     for r, row in enumerate(data):
         content = row[0]
         page = row[1]
-        # type = row[2]
+        type = row[2]
         file = row[3]
 
         if page != 1 and random.random() > 0.2:
@@ -268,11 +250,18 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
 
         pages += [page]
         contents += [content]
+        if page == 1:
+            type_counters[type]["first_page"] += 1
+        else:
+            type_counters[type]["not_first_page"] += 1
 
+    zipped_data = list(zip(contents, pages))
+    random.shuffle(zipped_data)
+    shuffled_contents, shuffled_pages = zip(*zipped_data)
     mini_batch_features: list[str] = []
     mini_batch_labels: list[int] = []
     counter = 0
-    for features, labels in zip(contents, pages):
+    for features, labels in zip(shuffled_contents, shuffled_pages):
         if counter >= mini_batch_size:
             dataset.append(
                 {
@@ -296,5 +285,9 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
                 "labels": mini_batch_labels,
             }
         )
+
+    for t, type in enumerate(list(TYPES.keys())):
+        print(f"first pages {type}: {type_counters[t]["first_page"]}")
+        print(f"not first pages {type}: {type_counters[t]["not_first_page"]}")
 
     return dataset

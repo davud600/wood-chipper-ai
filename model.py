@@ -23,9 +23,12 @@ class PageClassifier(nn.Module):
         self._initialize_weights()
 
     def _initialize_weights(self):
-        nn.init.xavier_uniform_(self.fc.weight)
-        nn.init.xavier_uniform_(self.hidden.weight)
-        nn.init.xavier_uniform_(self.hidden_2.weight)
+        # nn.init.xavier_uniform_(self.fc.weight)
+        # nn.init.xavier_uniform_(self.hidden.weight)
+        # nn.init.xavier_uniform_(self.hidden_2.weight)
+        nn.init.kaiming_uniform_(self.fc.weight)
+        nn.init.kaiming_uniform_(self.hidden.weight)
+        nn.init.kaiming_uniform_(self.hidden_2.weight)
         nn.init.zeros_(self.fc.bias)
         nn.init.zeros_(self.hidden.bias)
         nn.init.zeros_(self.hidden_2.bias)
