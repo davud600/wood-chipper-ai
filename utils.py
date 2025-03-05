@@ -287,7 +287,9 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
         )
 
     for t, type in enumerate(list(TYPES.keys())):
-        print(f"first pages {type}: {type_counters[t]["first_page"]}")
-        print(f"not first pages {type}: {type_counters[t]["not_first_page"]}")
+        print(f"\n{type}")
+        print(
+            f"first pages: {type_counters[t]["first_page"]}, not first pages: {type_counters[t]["not_first_page"]}"
+        )
 
     return dataset
