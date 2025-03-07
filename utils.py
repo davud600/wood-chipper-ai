@@ -14,10 +14,12 @@ import re
 
 max_length = 3064
 pages_to_append = 5
-training_mini_batch_size = 6
-testing_mini_batch_size = 6
-learning_rate = 0.000005
+training_mini_batch_size = 4
+testing_mini_batch_size = 4
+learning_rate = 0.0001
 weight_decay = 0.01
+patience = 10
+factor = 0.5
 epochs = 5
 log_steps = 10
 eval_steps = 50
@@ -210,22 +212,23 @@ def render_and_preprocess_page_in_memory(doc: fitz.open, page_num: int):
 def get_dataset(path: str, mini_batch_size: int) -> Dataset:
     data: list[tuple[str, int, int, str]] = []
     dataset: Dataset = []
-    contents = []
-    pages = []
+    contents: list[str] = []
+    pages: list[int] = []
+    types: list[int] = []
     with open(file=path, mode="r", encoding="utf-8") as file:
         reader = csv.reader(file)
         for r, row in enumerate(reader):
             if r == 0:  # skip headers.
                 continue
 
-            if (
-                int(row[2]) != 1
-                and int(row[2]) != 2
-                and int(row[2]) != 3
-                and int(row[2]) != 4
-                and int(row[2]) != 5
-            ):  # temp:
-                continue
+            # if (
+            #     int(row[2]) != 1
+            #     and int(row[2]) != 2
+            #     and int(row[2]) != 3
+            #     and int(row[2]) != 4
+            #     and int(row[2]) != 5
+            # ):  # temp:
+            #     continue
 
             data += [(str(row[0]), int(row[1]), int(row[2]), str(row[3]))]
 
@@ -249,47 +252,54 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
             content += f"<next_page_{next}>{data[r - next][0]}</next_page_{next}>"
 
         pages += [page]
+        types += [type]
         contents += [content]
         if page == 1:
             type_counters[type]["first_page"] += 1
         else:
             type_counters[type]["not_first_page"] += 1
 
-    zipped_data = list(zip(contents, pages))
+    zipped_data = list(zip(contents, pages, types))
     random.shuffle(zipped_data)
-    shuffled_contents, shuffled_pages = zip(*zipped_data)
+    shuffled_contents, shuffled_pages, shuffled_types = zip(*zipped_data)
     mini_batch_features: list[str] = []
-    mini_batch_labels: list[int] = []
+    mini_batch_page_labels: list[int] = []
+    mini_batch_type_labels: list[int] = []
     counter = 0
-    for features, labels in zip(shuffled_contents, shuffled_pages):
+    for features, page_labels, type_labels in zip(
+        shuffled_contents, shuffled_pages, shuffled_types
+    ):
         if counter >= mini_batch_size:
             dataset.append(
                 {
                     "features": mini_batch_features,
-                    "labels": mini_batch_labels,
+                    "page_labels": mini_batch_page_labels,
+                    "type_labels": mini_batch_type_labels,
                 }
             )
 
             mini_batch_features = []
-            mini_batch_labels = []
+            mini_batch_page_labels = []
+            mini_batch_type_labels = []
             counter = 0
 
         mini_batch_features.append(features)
-        mini_batch_labels.append(labels)
+        mini_batch_page_labels.append(page_labels)
+        mini_batch_type_labels.append(type_labels)
         counter += 1
 
     if mini_batch_features:
         dataset.append(
             {
                 "features": mini_batch_features,
-                "labels": mini_batch_labels,
+                "page_labels": mini_batch_page_labels,
+                "type_labels": mini_batch_type_labels,
             }
         )
 
     for t, type in enumerate(list(TYPES.keys())):
-        print(f"\n{type}")
         print(
-            f"first pages: {type_counters[t]["first_page"]}, not first pages: {type_counters[t]["not_first_page"]}"
+            f"{type}: {type_counters[t]["first_page"] + type_counters[t]["not_first_page"]} ({type_counters[t]["first_page"]}, {type_counters[t]["not_first_page"]})"
         )
 
     return dataset

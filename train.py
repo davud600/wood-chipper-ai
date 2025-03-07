@@ -1,12 +1,12 @@
 from transformers import AutoTokenizer
 import numpy as np
-import torch.nn as nn
+import random
 import torch
 import os
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-from model import PageClassifier
+from model import ClassifierModel
 
 from utils import (
     TESTING_DATA_CSV,
@@ -15,6 +15,8 @@ from utils import (
     max_length,
     learning_rate,
     weight_decay,
+    patience,
+    factor,
     epochs,
     log_steps,
     eval_steps,
@@ -34,16 +36,19 @@ if __name__ == "__main__":
         path=TESTING_DATA_CSV, mini_batch_size=testing_mini_batch_size
     )
 
-    page_classifier = PageClassifier().to("cuda")
+    model = ClassifierModel().to("cuda")
     scaler = torch.amp.grad_scaler.GradScaler()
-    loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(
-        page_classifier.parameters(), lr=learning_rate, weight_decay=weight_decay
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=patience, factor=factor
     )
     steps = 0
+    smallest_mean_eval_loss = 100
 
     for epoch in range(epochs):
-        loss = None
+        random.shuffle(training_dataset)
         epoch_steps = 0
         for mini_batch in training_dataset:
             epoch_steps += 1
@@ -57,28 +62,30 @@ if __name__ == "__main__":
             )
 
             features = tokenized.input_ids.to("cuda")
-            labels = torch.stack(
+            page_labels = torch.stack(
                 [
                     torch.tensor(1 if label == 1 else 0, dtype=torch.long)
-                    for label in mini_batch["labels"]
+                    for label in mini_batch["page_labels"]
+                ]
+            ).to("cuda")
+            type_labels = torch.stack(
+                [
+                    torch.tensor(label, dtype=torch.long)
+                    for label in mini_batch["type_labels"]
                 ]
             ).to("cuda")
 
             with torch.amp.autocast_mode.autocast(
                 device_type="cuda", dtype=torch.float16
             ):
-                predicted_pages = page_classifier(features)
-                loss = loss_fn(predicted_pages, labels)
+                loss, predicted_pages, predicted_types = model(
+                    features, page_labels, type_labels
+                )
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
-
-            # loss = loss_fn(predicted_pages, labels)
-            # loss.backward()
-            # optimizer.step()
-            # optimizer.zero_grad()
 
             if steps % log_steps == 0:
                 print(
@@ -86,7 +93,7 @@ if __name__ == "__main__":
                 )
 
             if steps % eval_steps == 0:
-                eval_loss = np.array([])
+                eval_losses = []
                 for test_mini_batch in testing_dataset:
                     tokenized = tokenizer(
                         test_mini_batch["features"],
@@ -97,29 +104,31 @@ if __name__ == "__main__":
                     )
 
                     test_features = tokenized.input_ids.to("cuda")
-                    test_labels = torch.stack(
+                    test_page_labels = torch.stack(
                         [
                             torch.tensor(1 if label == 1 else 0, dtype=torch.long)
-                            for label in test_mini_batch["labels"]
+                            for label in test_mini_batch["page_labels"]
+                        ]
+                    ).to("cuda")
+                    test_type_labels = torch.stack(
+                        [
+                            torch.tensor(label, dtype=torch.long)
+                            for label in test_mini_batch["type_labels"]
                         ]
                     ).to("cuda")
 
                     with torch.amp.autocast_mode.autocast(
                         device_type="cuda", dtype=torch.float16
                     ):
-                        predicted_pages = page_classifier(test_features)
-                        eval_loss = np.append(
-                            eval_loss,
-                            [
-                                loss_fn(predicted_pages, test_labels)
-                                .to("cpu")
-                                .detach()
-                                .numpy()
-                            ],
+                        model_eval_loss, predicted_pages, predicted_types = model(
+                            test_features, test_page_labels, test_type_labels
                         )
+                        eval_losses.append(model_eval_loss.to("cpu").detach().numpy())
 
-                print(
-                    f"step: {steps} - eval loss: {eval_loss.mean() if eval_loss is not None else "None"}"
-                )
+                mean_eval_loss = np.mean(eval_losses)
+                print(f"step: {steps} - eval loss: {mean_eval_loss}")
+                scheduler.step(mean_eval_loss)
 
-    torch.save(obj=page_classifier.state_dict(), f="./model/page_classifier.pth")
+                if mean_eval_loss < smallest_mean_eval_loss:
+                    torch.save(obj=model.state_dict(), f="./model/model.pth")
+                    smallest_mean_eval_loss = mean_eval_loss
