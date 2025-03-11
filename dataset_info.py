@@ -33,16 +33,11 @@ type_counters = {
     10: 0,
     11: 0,
 }
+sum = 0
 for type in data["type"].tolist():
+    sum += 1
     type_counters[int(type)] += 1
 
-text_lens = []
-for text in data["text"].tolist():
-    text_lens += [len(str(text))]
-# print(f"text lengths ({len(text_lens)}): {text_lens}")
-print(f"max text length: {max(text_lens)}")
-
-for type in list(type_counters.keys()):
-    total_pages += type_counters[type]
-    print(f"{list(TYPES.keys())[int(type)]}: {type_counters[type]}")
-print(f"total pages: {total_pages}")
+for t, type in enumerate(list(TYPES.keys())):
+    print(f"{type}: {type_counters[t]}")
+print(f"total: {sum}")
