@@ -4,11 +4,15 @@ testing_data.csv
 training_data_1.csv
 testing_data_1.csv
 misclassified_rows.txt
+example.csv
+merged.txt
+merged.pdf
 before_norm.png
 after_norm.png
 example.hocr
 example.pdf
 __pycache__
 .venv
+src/__pycache__
 **/__pycache__/
 __pycache__

@@ -1,21 +1,9 @@
 import pandas as pd
 
-TYPES = {
-    "unknown": 0,
-    "original-lease": 1,
-    "lease-renewal": 2,
-    "closing-document": 3,
-    "sublease": 4,
-    "alteration-document": 5,
-    "renovation-document": 6,
-    "proprietary-lease": 7,
-    "purchase-application": 8,
-    "refinance-document": 9,
-    "tenant-correspondence": 10,
-    "transfer-document": 11,
-}
+from utils import TRAINING_DATA_CSV, TYPES
 
-csv_file = "training_data.csv"
+
+csv_file = TRAINING_DATA_CSV
 data = pd.read_csv(csv_file)
 
 total_pages = 0
@@ -32,6 +20,7 @@ type_counters = {
     9: 0,
     10: 0,
     11: 0,
+    12: 0,
 }
 sum = 0
 for type in data["type"].tolist():

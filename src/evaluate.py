@@ -22,11 +22,13 @@ if __name__ == "__main__":
     )
 
     testing_dataset = get_dataset(path=TESTING_DATA_CSV, mini_batch_size=1)
+    # testing_dataset = get_dataset(path=TRAINING_DATA_CSV, mini_batch_size=1)
+    # testing_dataset = get_dataset(path="../example.csv", mini_batch_size=1)
 
     model = ClassifierModel().to("cuda")
     model.eval()
     model.load_state_dict(
-        torch.load("./model/model.pth", weights_only=False, map_location="cuda")
+        torch.load("../model/model.pth", weights_only=False, map_location="cuda")
     )
 
     for mini_batch in testing_dataset:
@@ -52,11 +54,21 @@ if __name__ == "__main__":
             ]
         ).to("cuda")
 
-        with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
-            loss, predicted_pages, predicted_types = model(
-                features, page_labels, type_labels
+        # filter out non-first pages in type labels and features.
+        first_page_indices = (page_labels == 1).nonzero(as_tuple=True)[0]
+        if first_page_indices.numel() > 0:
+            filtered_features = features[first_page_indices]
+            filtered_page_labels = page_labels[first_page_indices]
+            filtered_type_labels = type_labels[first_page_indices]
+        else:
+            filtered_features = torch.empty(
+                (0, features.shape[1]), dtype=torch.long, device="cuda"
             )
-            # print(f"loss - {loss}")
+            filtered_page_labels = torch.empty((0,), dtype=torch.long, device="cuda")
+            filtered_type_labels = torch.empty((0,), dtype=torch.long, device="cuda")
+
+        with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
+            loss, predicted_pages, _ = model(features, page_labels, type_labels)
 
             pages_true = np.append(
                 pages_true, [page_labels.to("cpu").detach().numpy()[0]]
@@ -64,13 +76,19 @@ if __name__ == "__main__":
             pages_pred = np.append(
                 pages_pred, [torch.argmax(predicted_pages).to("cpu").detach().numpy()]
             )
-            types_true = np.append(
-                types_true, [type_labels.to("cpu").detach().numpy()[0]]
-            )
-            types_pred = np.append(
-                types_pred, [torch.argmax(predicted_types).to("cpu").detach().numpy()]
-            )
-            # print(f"pages_true: {pages_true[-1]} - pages_pred: {pages_pred[-1]}")
+
+            if len(filtered_features) > 0:
+                _, _, predicted_types = model(
+                    filtered_features, filtered_page_labels, filtered_type_labels
+                )
+
+                types_true = np.append(
+                    types_true, [filtered_type_labels.to("cpu").detach().numpy()[0]]
+                )
+                types_pred = np.append(
+                    types_pred,
+                    [torch.argmax(predicted_types).to("cpu").detach().numpy()],
+                )
 
     print("\n")
     pages_correct = np.sum(pages_true == pages_pred)

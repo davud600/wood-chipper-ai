@@ -9,7 +9,7 @@ import re
 
 from utils import (
     EDGE_CASES_FILE_PATH,
-    IMAGE_DIR,
+    IMAGES_DIR,
     PDF_DIR,
     TESTING_DATA_CSV,
     TRAINING_DATA_CSV,
@@ -35,7 +35,7 @@ type EdgeCaseFiles = Dict[str, EdgeCaseFile]
 tesseract_config = r"--oem 1 --psm 3"
 # tesseract_config = r"--oem 0 --psm 3 --dpi 72"
 
-os.makedirs(IMAGE_DIR, exist_ok=True)
+os.makedirs(IMAGES_DIR, exist_ok=True)
 training_write_header = not os.path.exists(TRAINING_DATA_CSV)
 testing_write_header = not os.path.exists(TESTING_DATA_CSV)
 
@@ -45,7 +45,7 @@ def get_data_from_pdf(page: int, type: int, doc) -> DatasetRow:
 
     page_img = render_and_preprocess_page_in_memory(doc, page - 1)
     page_filename = f"{os.path.splitext(file)[0]}_page_{page}.png"
-    page_path = os.path.join(IMAGE_DIR, page_filename)
+    page_path = os.path.join(IMAGES_DIR, page_filename)
     page_img.save(page_path, "PNG")
 
     content = pytesseract.image_to_string(page_path, config=tesseract_config).strip()

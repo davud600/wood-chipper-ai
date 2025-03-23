@@ -130,5 +130,5 @@ if __name__ == "__main__":
                 scheduler.step(mean_eval_loss)
 
                 if mean_eval_loss < smallest_mean_eval_loss:
-                    torch.save(obj=model.state_dict(), f="./model/model.pth")
+                    torch.save(obj=model.state_dict(), f="../model/model.pth")
                     smallest_mean_eval_loss = mean_eval_loss

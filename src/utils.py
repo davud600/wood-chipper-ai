@@ -10,28 +10,34 @@ import cv2
 import csv
 import io
 import re
+import os
 
 
 max_length = 3064
-pages_to_append = 5
-training_mini_batch_size = 4
-testing_mini_batch_size = 4
+pages_to_append = 4
+training_mini_batch_size = 8
+testing_mini_batch_size = 8
 learning_rate = 0.0001
-weight_decay = 0.01
+weight_decay = 0.015
 patience = 10
 factor = 0.5
-epochs = 5
+epochs = 2
 log_steps = 10
 eval_steps = 50
 
 pymupdf_dpi = 300
+project_root = os.path.dirname(os.path.abspath(__file__))
+DOWNLOADS_DIR = os.path.join(project_root, "..", "downloads")
+IMAGES_DIR = os.path.join(project_root, "..", "pdf_images")
+PROCESSING_IMAGES_DIR = os.path.join(project_root, "..", "processing_images")
+SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "..", "split_documents")
+TRAINING_DATA_CSV = os.path.join(project_root, "..", "training_data.csv")
+TESTING_DATA_CSV = os.path.join(project_root, "..", "testing_data.csv")
+PDF_DIR = os.path.join(project_root, "..", "pdfs")
+EDGE_CASES_FILE_PATH = os.path.join(project_root, "..", "bad_files.txt")
+
 # pymupdf_dpi = 72
-EDGE_CASES_FILE_PATH = "./bad_files.txt"
 PAGE_SIMILARITY_THRESHOLD = 0.7
-PDF_DIR = "pdfs"
-IMAGE_DIR = "pdf_images"
-TRAINING_DATA_CSV = "training_data.csv"
-TESTING_DATA_CSV = "testing_data.csv"
 TRAINING_PERCENTAGE = 0.8
 TYPES = {
     "unknown": 0,
@@ -39,13 +45,14 @@ TYPES = {
     "lease-renewal": 2,
     "closing-document": 3,
     "sublease": 4,
-    "alteration-document": 5,
-    "renovation-document": 6,
-    "proprietary-lease": 7,
-    "purchase-application": 8,
-    "refinance-document": 9,
-    "tenant-correspondence": 10,
-    "transfer-document": 11,
+    "renovation-alteration-document": 5,
+    "proprietary-lease": 6,
+    "purchase-application": 7,
+    "refinance-document": 8,
+    "tenant-correspondence": 9,
+    "transfer-document": 10,
+    "sublease-renewal": 11,
+    "transfer-of-title": 12,
 }
 
 
@@ -59,13 +66,14 @@ class DocumentType(Enum):
     LEASE_RENEWAL = 2
     CLOSING_DOCUMENT = 3
     SUBLEASE = 4
-    ALTERATION_DOCUMENT = 5
-    RENOVATION_DOCUMENT = 6
+    RENOVATION_ALTERATION_DOCUMENT = 5
     PROPRIETARY_LEASE = 7
     PURCHASE_APPLICATION = 8
     REFINANCE_DOCUMENT = 9
     TENANT_CORRESPONDENCE = 10
     TRANSFER_DOCUMENT = 11
+    SUBLEASE_RENEWAL = 11
+    TRANSFER_OF_TITLE = 11
 
 
 class EdgeCases(Enum):
@@ -221,15 +229,6 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
             if r == 0:  # skip headers.
                 continue
 
-            # if (
-            #     int(row[2]) != 1
-            #     and int(row[2]) != 2
-            #     and int(row[2]) != 3
-            #     and int(row[2]) != 4
-            #     and int(row[2]) != 5
-            # ):  # temp:
-            #     continue
-
             data += [(str(row[0]), int(row[1]), int(row[2]), str(row[3]))]
 
     type_counters = [
@@ -241,7 +240,7 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
         type = row[2]
         file = row[3]
 
-        if page != 1 and random.random() > 0.2:
+        if page != 1 and random.random() > 0.15:
             continue
 
         content = f"<curr_page>{content}</curr_page>"
@@ -303,3 +302,27 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
         )
 
     return dataset
+
+
+def convert_pdf_to_images(file_name: str) -> str:
+    file_path = f"{DOWNLOADS_DIR}/{file_name}"
+
+    doc = fitz.open(file_path)
+    images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name)
+    for page in range(0, len(doc)):
+        page_img = render_and_preprocess_page_in_memory(doc, page)
+        page_filename = f"{page + 1}.png"
+        page_path = os.path.join(images_dir, page_filename)
+        page_img.save(page_path, "PNG")
+
+    return images_dir
+
+
+def create_sub_document(file_name: str, start_page: int, end_page: int, id: int) -> str:
+    # file_path = f"{DOWNLOADS_DIR}/{file_name}"
+    # images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name)
+    split_doc_path = os.path.join(SPLIT_DOCUMENTS_DIR, file_name, f"{id}.pdf")
+
+    # create pdf file.
+
+    return split_doc_path

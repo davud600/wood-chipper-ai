@@ -22,7 +22,7 @@ class ClassifierModel(nn.Module):
         self.page_out = nn.Linear(hidden_size // 2, page_output_size)
         self.type_out = nn.Linear(hidden_size // 2, type_output_size)
         self.attn = nn.Linear(input_size, 1)
-        self.dropout = nn.Dropout(0.15)
+        self.dropout = nn.Dropout(0.2)
         self._initialize_weights()
 
     def _initialize_weights(self):
@@ -67,6 +67,7 @@ class ClassifierModel(nn.Module):
             page_loss = loss_fn(page_logits, page_labels)
             type_loss = loss_fn(type_logits, type_labels)
             total_loss = page_loss + type_loss
+
             return (
                 total_loss,
                 page_logits,
