@@ -6,8 +6,12 @@ import csv
 import os
 import re
 
+from src.custom_types import (
+    DocumentType,
+    EdgeCases,
+)
 
-from utils import (
+from src.utils import (
     EDGE_CASES_FILE_PATH,
     IMAGES_DIR,
     PDF_DIR,
@@ -15,10 +19,9 @@ from utils import (
     TRAINING_DATA_CSV,
     TRAINING_PERCENTAGE,
     TYPES,
-    DocumentType,
-    EdgeCases,
     clean_text,
     render_and_preprocess_page_in_memory,
+    tesseract_config,
 )
 
 
@@ -32,8 +35,6 @@ class EdgeCaseFile(TypedDict):
 
 type EdgeCaseFiles = Dict[str, EdgeCaseFile]
 
-tesseract_config = r"--oem 1 --psm 3"
-# tesseract_config = r"--oem 0 --psm 3 --dpi 72"
 
 os.makedirs(IMAGES_DIR, exist_ok=True)
 training_write_header = not os.path.exists(TRAINING_DATA_CSV)

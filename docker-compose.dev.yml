@@ -1,0 +1,19 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/wood-chipper-ai
+      - /wood-chipper-ai/.venv
+    depends_on:
+      - redis
+    command: gunicorn -w 1 -b 0.0.0.0:8000 src.server:app
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no

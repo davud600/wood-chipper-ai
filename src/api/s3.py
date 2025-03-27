@@ -1,10 +1,10 @@
 import requests
 import os
 
-from utils import DOWNLOADS_DIR
+from src.utils import DOWNLOADS_DIR
 
 
-def download_s3_file(signed_get_url: str, output_filename: str):
+def download_s3_file(signed_get_url: str, output_filename: str) -> str:
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
     file_path = os.path.join(DOWNLOADS_DIR, output_filename)
@@ -16,7 +16,7 @@ def download_s3_file(signed_get_url: str, output_filename: str):
     with open(file_path, "wb") as f:
         f.write(response.content)
 
-    print(f"File saved to {file_path}")
+    return file_path
 
 
 def upload_file_to_s3(signed_put_url: str, path: str):

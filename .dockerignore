@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+dataset/
+.git/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.csv
+*.pdf

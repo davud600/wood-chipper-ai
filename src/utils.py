@@ -1,40 +1,43 @@
-from typing import Dict
 from PIL import Image
-from enum import Enum
 from cv2.typing import MatLike
+
 import numpy as np
 import pytesseract
+import fitz
 import random
-import fitz  # PyMuPDF
 import cv2
 import csv
 import io
 import re
 import os
 
+from src.custom_types import Dataset
 
+
+tesseract_config = r"--oem 3 --psm 3"
 max_length = 3064
 pages_to_append = 4
-training_mini_batch_size = 8
-testing_mini_batch_size = 8
-learning_rate = 0.0001
-weight_decay = 0.015
+training_mini_batch_size = 6
+testing_mini_batch_size = 6
+learning_rate = 0.00005
+weight_decay = 0.01
 patience = 10
 factor = 0.5
-epochs = 2
+epochs = 5
 log_steps = 10
 eval_steps = 50
-
 pymupdf_dpi = 300
-project_root = os.path.dirname(os.path.abspath(__file__))
-DOWNLOADS_DIR = os.path.join(project_root, "..", "downloads")
-IMAGES_DIR = os.path.join(project_root, "..", "pdf_images")
-PROCESSING_IMAGES_DIR = os.path.join(project_root, "..", "processing_images")
-SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "..", "split_documents")
-TRAINING_DATA_CSV = os.path.join(project_root, "..", "training_data.csv")
-TESTING_DATA_CSV = os.path.join(project_root, "..", "testing_data.csv")
-PDF_DIR = os.path.join(project_root, "..", "pdfs")
-EDGE_CASES_FILE_PATH = os.path.join(project_root, "..", "bad_files.txt")
+project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+MODEL_PATH = os.path.join(project_root, "model", "model.pth")
+DOWNLOADS_DIR = os.path.join(project_root, "downloads")
+IMAGES_DIR = os.path.join(project_root, "pdf_images")
+PROCESSING_IMAGES_DIR = os.path.join(project_root, "processing_images")
+SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "split_documents")
+TRAINING_DATA_CSV = os.path.join(project_root, "training_data.csv")
+TESTING_DATA_CSV = os.path.join(project_root, "testing_data.csv")
+PDF_DIR = os.path.join(project_root, "pdfs")
+EDGE_CASES_FILE_PATH = os.path.join(project_root, "bad_files.txt")
 
 # pymupdf_dpi = 72
 PAGE_SIMILARITY_THRESHOLD = 0.7
@@ -54,94 +57,6 @@ TYPES = {
     "sublease-renewal": 11,
     "transfer-of-title": 12,
 }
-
-
-type DatasetMiniBatch = Dict[str, list[str] | list[int]]
-type Dataset = list[DatasetMiniBatch]
-
-
-class DocumentType(Enum):
-    UNKNOWN = 0
-    ORIGINAL_LEASE = 1
-    LEASE_RENEWAL = 2
-    CLOSING_DOCUMENT = 3
-    SUBLEASE = 4
-    RENOVATION_ALTERATION_DOCUMENT = 5
-    PROPRIETARY_LEASE = 7
-    PURCHASE_APPLICATION = 8
-    REFINANCE_DOCUMENT = 9
-    TENANT_CORRESPONDENCE = 10
-    TRANSFER_DOCUMENT = 11
-    SUBLEASE_RENEWAL = 11
-    TRANSFER_OF_TITLE = 11
-
-
-class EdgeCases(Enum):
-    START = r"start\((\d+)\)"
-    ALIAS = r"alias\((\d+)\)"
-    DELETE = "delete"
-    AGREEMENT = "agreement"
-    SUBLEASE = "sublease"
-
-
-def normalize_image(image: MatLike) -> MatLike:
-    dst = np.zeros_like(image)
-    return cv2.normalize(
-        image, dst, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
-    )
-
-
-def correct_skew(image):
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
-
-    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    coords = np.column_stack(np.where(binary > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = 90 + angle
-    elif angle > 45:
-        angle = angle - 90
-
-    (h, w) = gray.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, -angle, 1.0)
-    rotated = cv2.warpAffine(
-        image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
-    )
-    return rotated
-
-
-# def scale_image(image, ppi=300):
-#     dpi_scale = ppi / 72
-#     new_size = (int(image.width * dpi_scale), int(image.height * dpi_scale))
-#     return image.resize(new_size, Image.LANCZOS)
-
-
-def remove_noise(image: MatLike) -> MatLike:
-    return cv2.fastNlMeansDenoisingColored(
-        image,
-        h=5,
-        hColor=5,
-        templateWindowSize=7,
-        searchWindowSize=21,
-    )
-
-
-def convert_to_grayscale(image: MatLike) -> MatLike:
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    return image
-
-
-def binarize_image(image: MatLike) -> MatLike:
-    gray = convert_to_grayscale(image)
-    binary = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    return binary
 
 
 def clean_text(text: str) -> str:
@@ -240,7 +155,7 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
         type = row[2]
         file = row[3]
 
-        if page != 1 and random.random() > 0.15:
+        if page != 1 and random.random() > 0.2:
             continue
 
         content = f"<curr_page>{content}</curr_page>"
@@ -258,41 +173,34 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
         else:
             type_counters[type]["not_first_page"] += 1
 
-    zipped_data = list(zip(contents, pages, types))
+    zipped_data = list(zip(contents, pages))
     random.shuffle(zipped_data)
-    shuffled_contents, shuffled_pages, shuffled_types = zip(*zipped_data)
+    shuffled_contents, shuffled_pages = zip(*zipped_data)
     mini_batch_features: list[str] = []
-    mini_batch_page_labels: list[int] = []
-    mini_batch_type_labels: list[int] = []
+    mini_batch_labels: list[int] = []
     counter = 0
-    for features, page_labels, type_labels in zip(
-        shuffled_contents, shuffled_pages, shuffled_types
-    ):
+    for features, labels in zip(shuffled_contents, shuffled_pages):
         if counter >= mini_batch_size:
             dataset.append(
                 {
                     "features": mini_batch_features,
-                    "page_labels": mini_batch_page_labels,
-                    "type_labels": mini_batch_type_labels,
+                    "labels": mini_batch_labels,
                 }
             )
 
             mini_batch_features = []
-            mini_batch_page_labels = []
-            mini_batch_type_labels = []
+            mini_batch_labels = []
             counter = 0
 
         mini_batch_features.append(features)
-        mini_batch_page_labels.append(page_labels)
-        mini_batch_type_labels.append(type_labels)
+        mini_batch_labels.append(labels)
         counter += 1
 
     if mini_batch_features:
         dataset.append(
             {
                 "features": mini_batch_features,
-                "page_labels": mini_batch_page_labels,
-                "type_labels": mini_batch_type_labels,
+                "labels": mini_batch_labels,
             }
         )
 
@@ -302,27 +210,3 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
         )
 
     return dataset
-
-
-def convert_pdf_to_images(file_name: str) -> str:
-    file_path = f"{DOWNLOADS_DIR}/{file_name}"
-
-    doc = fitz.open(file_path)
-    images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name)
-    for page in range(0, len(doc)):
-        page_img = render_and_preprocess_page_in_memory(doc, page)
-        page_filename = f"{page + 1}.png"
-        page_path = os.path.join(images_dir, page_filename)
-        page_img.save(page_path, "PNG")
-
-    return images_dir
-
-
-def create_sub_document(file_name: str, start_page: int, end_page: int, id: int) -> str:
-    # file_path = f"{DOWNLOADS_DIR}/{file_name}"
-    # images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name)
-    split_doc_path = os.path.join(SPLIT_DOCUMENTS_DIR, file_name, f"{id}.pdf")
-
-    # create pdf file.
-
-    return split_doc_path

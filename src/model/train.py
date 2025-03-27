@@ -6,9 +6,10 @@ import os
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-from model import ClassifierModel
+from src.model.model import SplitterModel
 
-from utils import (
+from src.utils import (
+    MODEL_PATH,
     TESTING_DATA_CSV,
     TRAINING_DATA_CSV,
     get_dataset,
@@ -36,7 +37,7 @@ if __name__ == "__main__":
         path=TESTING_DATA_CSV, mini_batch_size=testing_mini_batch_size
     )
 
-    model = ClassifierModel().to("cuda")
+    model = SplitterModel().to("cuda")
     scaler = torch.amp.grad_scaler.GradScaler()
     optimizer = torch.optim.Adam(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay
@@ -62,25 +63,17 @@ if __name__ == "__main__":
             )
 
             features = tokenized.input_ids.to("cuda")
-            page_labels = torch.stack(
+            labels = torch.stack(
                 [
                     torch.tensor(1 if label == 1 else 0, dtype=torch.long)
-                    for label in mini_batch["page_labels"]
-                ]
-            ).to("cuda")
-            type_labels = torch.stack(
-                [
-                    torch.tensor(label, dtype=torch.long)
-                    for label in mini_batch["type_labels"]
+                    for label in mini_batch["labels"]
                 ]
             ).to("cuda")
 
             with torch.amp.autocast_mode.autocast(
                 device_type="cuda", dtype=torch.float16
             ):
-                loss, predicted_pages, predicted_types = model(
-                    features, page_labels, type_labels
-                )
+                loss, predicted = model(features, labels)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -104,24 +97,18 @@ if __name__ == "__main__":
                     )
 
                     test_features = tokenized.input_ids.to("cuda")
-                    test_page_labels = torch.stack(
+                    test_labels = torch.stack(
                         [
                             torch.tensor(1 if label == 1 else 0, dtype=torch.long)
-                            for label in test_mini_batch["page_labels"]
-                        ]
-                    ).to("cuda")
-                    test_type_labels = torch.stack(
-                        [
-                            torch.tensor(label, dtype=torch.long)
-                            for label in test_mini_batch["type_labels"]
+                            for label in test_mini_batch["labels"]
                         ]
                     ).to("cuda")
 
                     with torch.amp.autocast_mode.autocast(
                         device_type="cuda", dtype=torch.float16
                     ):
-                        model_eval_loss, predicted_pages, predicted_types = model(
-                            test_features, test_page_labels, test_type_labels
+                        model_eval_loss, predicted_pages = model(
+                            test_features, test_labels
                         )
                         eval_losses.append(model_eval_loss.to("cpu").detach().numpy())
 
@@ -130,5 +117,5 @@ if __name__ == "__main__":
                 scheduler.step(mean_eval_loss)
 
                 if mean_eval_loss < smallest_mean_eval_loss:
-                    torch.save(obj=model.state_dict(), f="../model/model.pth")
+                    torch.save(obj=model.state_dict(), f=MODEL_PATH)
                     smallest_mean_eval_loss = mean_eval_loss
