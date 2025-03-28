@@ -19,11 +19,13 @@ learning_rate = 0.00005
 weight_decay = 0.005
 patience = 10
 factor = 0.5
-epochs = 10
+epochs = 2
 log_steps = 10
 eval_steps = 50
 pymupdf_dpi = 300
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+DELETE_REDIS_KEYS_TIMEOUT = 60
 
 SPLITTER_MODEL_PATH = os.path.join(project_root, "models", "splitter.pth")
 DOWNLOADS_DIR = os.path.join(project_root, "downloads")

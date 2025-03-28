@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from transformers import AutoTokenizer
 from typing import cast
 
+import concurrent.futures
 import threading
 import redis
 import torch
@@ -10,7 +11,7 @@ import fitz
 
 # import csv  # temp: debugging.
 
-from src.utils import SPLITTER_MODEL_PATH, pages_to_append
+from src.utils import SPLITTER_MODEL_PATH, DELETE_REDIS_KEYS_TIMEOUT, pages_to_append
 from src.model.model import SplitterModel
 from src.api.s3 import download_s3_file, upload_file_to_s3
 from src.api.document_records import (
@@ -55,38 +56,46 @@ model.load_state_dict(
 # MAIN FUNCTIONS.
 # --------------------------------------------------------
 def handle_first_page(
-    page: int,
     prev_split_page: int,
+    page: int,
+    offset: int,
     token: str,
     transaction_id: int,
     parent_document_id: int,
     merged_file_name: str,
 ):
     """
-    page -> 0-based, model predicted this as start of new document.
-    prev_split_page -> previous first page.
+    prev_split_page 0-based -> previous first page (don't include in sub-doc).
+    page -> 0-based, model predicted this as start of new document (include in sub-doc).
     token -> client auth token.
     transaction_id -> id of transaction associated with parent document.
     parent_document_id -> merged document record id.
     merged_file_name -> file name of merged document.
     """
 
-    print("creating document record...")
-    document_record_id, signed_put_url = create_document_record(
+    print(f"creating sub document {prev_split_page} - {page}...")
+    document_id, signed_put_url = create_document_record(
         token, transaction_id, parent_document_id
     )
 
-    print(f"creating sub document {prev_split_page} - {page}...")
+    # update redis keys for doc contents to be used later on processing step.
+    for i in range(page - prev_split_page):
+        print(
+            f"page_content:{document_id}:{i} => page_content:{parent_document_id}:{i + prev_split_page + 1}"
+        )
+        r.set(
+            f"page_content:{document_id}:{i}",
+            str(r.get(f"page_content:{parent_document_id}:{i + prev_split_page + 1}")),
+        )
+
     sub_document_path = create_sub_document(
-        merged_file_name, prev_split_page, page, document_record_id
+        merged_file_name, prev_split_page, page, document_id
     )
 
-    print("uploading file to s3...")
+    # print("uploading file to s3...")
     upload_file_to_s3(signed_put_url, sub_document_path)
-
-    print("notifying web server to add sub document to client queue...")
-    add_document_to_client_queue(token, document_record_id)
-    r.set(f"prev_split_page:{parent_document_id}", page)
+    add_document_to_client_queue(token, document_id)
+    r.set(f"prev_split_page:{parent_document_id}", page + offset)
 
 
 # --------------------------------------------------------
@@ -106,7 +115,6 @@ def split_endpoint():
     Responds with 200 status code.
     """
 
-    print("received request to split document...")
     data = request.get_json() or {}
 
     if "token" not in data:
@@ -156,7 +164,6 @@ def process_endpoint():
     Responds with 200 status code.
     """
 
-    print("received request to process document...")
     data = request.get_json() or {}
 
     if "token" not in data:
@@ -201,13 +208,13 @@ def split_request(
     (Runs in a separate thread from the main Flask thread.)
     """
 
+    print(f"\n#{parent_document_id} downloading source file...")
     merged_file_name = f"{parent_document_id}.pdf"
-
-    print(f"downloading source file {merged_file_name}...")
     merged_file_path = download_s3_file(signed_get_url, merged_file_name)
 
     merged_doc = fitz.open(merged_file_path)
     document_pages = len(merged_doc)
+    print("document_pages:", document_pages)
     merged_doc.close()
 
     r.set(f"prev_split_page:{parent_document_id}", -1)
@@ -244,26 +251,28 @@ def split_request(
 
                 content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
 
-            print(f"page {i + 1} content:", content[:100] + "...")
+            print(f"#{parent_document_id} page {i + 1} content:", content[:30] + "...")
 
             if i == 0:
                 continue
 
-            if is_first_page(tokenizer, model, content) or i == document_pages - 1:
-                print(f"found first page: {i + 1}")
+            first_page, offset = is_first_page(tokenizer, model, content)
+
+            if first_page or i == document_pages - 1:
+                print(f"\n#{parent_document_id} found first page: {i}")
 
                 # bg task...
                 try:
                     threading.Thread(
                         target=handle_first_page,
                         args=(
-                            i,
                             int(
                                 cast(
                                     str, r.get(f"prev_split_page:{parent_document_id}")
                                 )
-                            )
-                            + 1,
+                            ),
+                            i if i == document_pages - 1 else i - 1,
+                            offset,
                             token,
                             transaction_id,
                             parent_document_id,
@@ -275,15 +284,26 @@ def split_request(
         except Exception as e:
             print(e)
 
-    print("notifying web server that splitting parent document has been finished...")
     notify_for_finished_splitting(token, parent_document_id)
 
     # clear keys from redis.
-    # content keys are deleted here but after processing,
-    # since they will be processed anyway and that needs the contents.
-    splitting_keys = list(r.scan_iter("prev_split_page:*"))
-    if splitting_keys:
-        r.delete(*splitting_keys)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_split_page = executor.submit(
+            lambda: (lambda keys: r.delete(*keys) if keys else None)(
+                list(r.scan_iter(f"prev_split_page:{parent_document_id}"))
+            )
+        )
+        future_contents = executor.submit(
+            lambda: (lambda keys: r.delete(*keys) if keys else None)(
+                list(r.scan_iter(f"page_content:{parent_document_id}:*"))
+            )
+        )
+
+        try:
+            future_split_page.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
+            future_contents.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
+        except concurrent.futures.TimeoutError:
+            print("Timeout: clearing keys took too long.")
 
 
 def process_request(
@@ -297,16 +317,20 @@ def process_request(
     """
 
     file_name = f"{document_id}.pdf"
+    print("\n")
 
     contents_exist = True
     for i in range(0, pages_to_append):
+        print(
+            f"#{document_id} page {i} content:",
+            f"{str(r.get(f"page_content:{document_id}:{i}"))[:30]}...",
+        )
         if r.get(f"page_content:{document_id}:{i}") is None:
             contents_exist = False
             break
 
     content = None
     if not contents_exist:
-        print(f"downloading source file {file_name}...")
         file_path = download_s3_file(signed_get_url, file_name)
 
         doc = fitz.open(file_path)
@@ -343,16 +367,23 @@ def process_request(
             next_page_content = str(r.get(f"page_content:{document_id}:{j}"))
             content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
 
-    print(f"content:", content[:100] + "...")
+    # print(f"#{document_id} content:", content[:30] + "...")
 
-    print("notifying web server to add document to client queue...")
     data = {}  # prcessing...
     notify_for_finished_processing(token, document_id, data)
 
     # clear keys from redis.
-    content_keys = list(r.scan_iter("page_content:*"))
-    if content_keys:
-        r.delete(*content_keys)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(
+            lambda: (lambda keys: r.delete(*keys) if keys else None)(
+                list(r.scan_iter(f"page_content:{document_id}:*"))
+            )
+        )
+
+        try:
+            future.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
+        except concurrent.futures.TimeoutError:
+            print("Timeout: clearing keys took too long.")
 
 
 if __name__ == "__main__":

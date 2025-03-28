@@ -10,12 +10,14 @@ DONE training (bce with logit loss pos weight),
 DONE evaluation (f1 score),
 DONE inference (in server),
 
-todo: processing endpoint.
-avoid downloading file if contents already saved.
+DONE todo: processing endpoint.
+DONE avoid downloading file if contents already saved.
+
+todo: auto correct with regex on ocr.
 
 todo: custom tokenizer.
 
 todo: expirement with embedding layer.
 
 GOATED!!
-```find . -maxdepth 1 -type f | head -n 10 | xargs -I{} cp "{}" .../wood-chipper-ai/dataset/pdfs/```
+`find . -maxdepth 1 -type f | head -n 10 | xargs -I{} cp "{}" .../wood-chipper-ai/dataset/pdfs/`

@@ -21,9 +21,13 @@ reader = easyocr.Reader(["en"], gpu=True)
 
 def is_first_page(
     tokenizer: PreTrainedTokenizer, model: nn.Module, content: str
-) -> bool:
+) -> tuple[bool, int]:
+    """
+    returns -> bool (is first page), offset (int)
+    """
+
     if "newdocumentseparator" in content.split("</curr_page>")[0]:
-        return True
+        return True, 1
 
     tokenized = tokenizer(
         [content],
@@ -41,9 +45,9 @@ def is_first_page(
         page_class = int(logit > 0)
 
         if page_class == 1:
-            return True
+            return True, 0
 
-    return False
+    return False, 0
 
 
 def convert_pdf_page_to_image(file_name: str, page: int) -> np.ndarray | None:
@@ -96,13 +100,19 @@ def delete_pdf_images(file_name: str):
 
 
 def create_sub_document(file_name: str, start_page: int, end_page: int, id: int) -> str:
+    """
+    file_name -> file name of parent document inside downloads dir.
+    start_page -> prev first page, NOT included in sub document.
+    end_page -> detected first page, included in sub document.
+    """
+
     file_path = os.path.join(DOWNLOADS_DIR, file_name)
     output_path = os.path.join(SPLIT_DOCUMENTS_DIR, f"{id}.pdf")
 
     src_doc = fitz.open(file_path)
     sub_doc = fitz.open()
 
-    sub_doc.insert_pdf(src_doc, from_page=start_page, to_page=end_page)
+    sub_doc.insert_pdf(src_doc, from_page=start_page + 1, to_page=end_page)
     sub_doc.save(output_path)
 
     return output_path

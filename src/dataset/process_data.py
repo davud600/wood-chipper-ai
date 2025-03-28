@@ -124,7 +124,9 @@ if __name__ == "__main__":
 
             training = random.random() < TRAINING_PERCENTAGE
             pdf_path = os.path.join(PDF_DIR, file)
-            print(f"Processing {sum(list(type_counters)) + 1} / {len(pdf_list)}")
+            print(
+                f"Processing {sum(list(type_counters)) + 1} / {len(pdf_list)} - {file}"
+            )
 
             try:
                 doc = fitz.open(pdf_path)
