@@ -13,12 +13,9 @@ DONE inference (in server),
 todo: processing endpoint.
 avoid downloading file if contents already saved.
 
-todo: /root allocation.
-
-todo: tmux (lol).
-
 todo: custom tokenizer.
 
 todo: expirement with embedding layer.
 
-GOATED!! find . -maxdepth 1 -type f | head -n 10 | xargs -I{} cp "{}" .../wood-chipper-ai/dataset/pdfs/
+GOATED!!
+```find . -maxdepth 1 -type f | head -n 10 | xargs -I{} cp "{}" .../wood-chipper-ai/dataset/pdfs/```
