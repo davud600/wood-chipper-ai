@@ -1,21 +1,22 @@
-import pytesseract
 import torch.nn as nn
+import numpy as np
+import easyocr
 import torch
 import fitz
 import os
 
 from transformers import PreTrainedTokenizer
 from PIL import Image
+from io import BytesIO
 
 from src.utils import (
     DOWNLOADS_DIR,
-    PROCESSING_IMAGES_DIR,
     SPLIT_DOCUMENTS_DIR,
-    tesseract_config,
     clean_text,
     max_length,
-    render_and_preprocess_page_in_memory,
 )
+
+reader = easyocr.Reader(["en"], gpu=True)
 
 
 def is_first_page(
@@ -36,11 +37,8 @@ def is_first_page(
     features = tokenized.input_ids.to("cuda")
 
     with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
-        logits = model(features)
-        page_class = torch.argmax(logits, dim=1).item()
-
-        # print("page_logits.shape:", page_logits.shape)
-        # print("page_logits:", page_logits)
+        logit = model(features)
+        page_class = int(logit > 0)
 
         if page_class == 1:
             return True
@@ -48,26 +46,43 @@ def is_first_page(
     return False
 
 
-def convert_pdf_page_to_image(file_name: str, page: int) -> str:
+def convert_pdf_page_to_image(file_name: str, page: int) -> np.ndarray | None:
     """
     file_name -> file name of pdf inside downloads dir.
     page -> 0-based.
+
+    return -> grayscale image as np array [w, h].
     """
 
-    images_dir = f"{PROCESSING_IMAGES_DIR}/{file_name.replace('.pdf', '')}"
-    file_path = f"{DOWNLOADS_DIR}/{file_name}"
+    try:
+        file_path = f"{DOWNLOADS_DIR}/{file_name}"
+        doc = fitz.open(file_path)
 
-    doc = fitz.open(file_path)
-    page_img = render_and_preprocess_page_in_memory(doc, page)
+        pix = doc.load_page(page).get_pixmap(  # type: ignore
+            matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY
+        )
+        img = Image.open(BytesIO(pix.tobytes("jpg")))
 
-    page_file_name = f"{page}.png"
-    page_path = os.path.join(images_dir, page_file_name)
-    os.makedirs(os.path.dirname(page_path), exist_ok=True)
+        return np.array(img)
+    except Exception as e:
+        print(f"failed to convert page to image {file_name}, page {page}:", e)
 
-    page_img.save(page_path, "PNG")
-    image_path = os.path.join(images_dir, f"{page}.png")
 
-    return image_path
+def get_image_contents(file: np.ndarray) -> str:
+    """
+    file -> grayscale image as np array [w, h].
+    """
+
+    try:
+        results = reader.readtext(file, detail=0, paragraph=False, decoder="greedy")
+        content = " ".join(results)
+        content = clean_text(content)
+
+        return content.replace("\n", " ")
+    except Exception as e:
+        print(f"failed to get image conents:", e)
+
+        return ""
 
 
 def delete_pdf_images(file_name: str):
@@ -80,32 +95,32 @@ def delete_pdf_images(file_name: str):
     os.remove(dir)
 
 
-def get_image_contents(file_path: str) -> str:
-    """
-    file_path -> path of image file.
-    """
-
-    content = pytesseract.image_to_string(file_path, config=tesseract_config).strip()
-    content = clean_text(content)
-
-    return content.replace("\n", " ")
-
-
 def create_sub_document(file_name: str, start_page: int, end_page: int, id: int) -> str:
-    images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name.replace(".pdf", ""))
-    split_doc_path = os.path.join(SPLIT_DOCUMENTS_DIR, file_name, f"{id}.pdf")
+    file_path = os.path.join(DOWNLOADS_DIR, file_name)
+    output_path = os.path.join(SPLIT_DOCUMENTS_DIR, f"{id}.pdf")
 
-    os.makedirs(os.path.dirname(split_doc_path), exist_ok=True)
+    src_doc = fitz.open(file_path)
+    sub_doc = fitz.open()
 
-    image_files = sorted(os.listdir(images_dir))
-    selected_images = image_files[start_page:end_page]
+    sub_doc.insert_pdf(src_doc, from_page=start_page, to_page=end_page)
+    sub_doc.save(output_path)
 
-    image_paths = [os.path.join(images_dir, img) for img in selected_images]
-    images = [Image.open(path) for path in image_paths]
+    return output_path
 
-    if not images:
-        raise ValueError("No images found to generate PDF.")
-
-    images[0].save(split_doc_path, save_all=True, append_images=images[1:])
-
-    return split_doc_path
+    # images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name.replace(".pdf", ""))
+    # split_doc_path = os.path.join(SPLIT_DOCUMENTS_DIR, file_name, f"{id}.pdf")
+    #
+    # os.makedirs(os.path.dirname(split_doc_path), exist_ok=True)
+    #
+    # image_files = sorted(os.listdir(images_dir))
+    # selected_images = image_files[start_page:end_page]
+    #
+    # image_paths = [os.path.join(images_dir, img) for img in selected_images]
+    # images = [Image.open(path) for path in image_paths]
+    #
+    # if not images:
+    #     raise ValueError("No images found to generate PDF.")
+    #
+    # images[0].save(split_doc_path, save_all=True, append_images=images[1:])
+    #
+    # return split_doc_path

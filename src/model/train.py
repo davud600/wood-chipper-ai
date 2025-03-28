@@ -9,7 +9,7 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from src.model.model import SplitterModel
 
 from src.utils import (
-    MODEL_PATH,
+    SPLITTER_MODEL_PATH,
     TESTING_DATA_CSV,
     TRAINING_DATA_CSV,
     get_dataset,
@@ -30,14 +30,14 @@ if __name__ == "__main__":
         "allenai/longformer-base-4096", device="cuda"
     )
 
-    training_dataset = get_dataset(
+    training_dataset, N0, N1 = get_dataset(
         path=TRAINING_DATA_CSV, mini_batch_size=training_mini_batch_size
     )
-    testing_dataset = get_dataset(
+    testing_dataset, _, _ = get_dataset(
         path=TESTING_DATA_CSV, mini_batch_size=testing_mini_batch_size
     )
 
-    model = SplitterModel().to("cuda")
+    model = SplitterModel(pos_weight=N0 / N1).to("cuda")
     scaler = torch.amp.grad_scaler.GradScaler()
     optimizer = torch.optim.Adam(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay
@@ -117,5 +117,5 @@ if __name__ == "__main__":
                 scheduler.step(mean_eval_loss)
 
                 if mean_eval_loss < smallest_mean_eval_loss:
-                    torch.save(obj=model.state_dict(), f=MODEL_PATH)
+                    torch.save(obj=model.state_dict(), f=SPLITTER_MODEL_PATH)
                     smallest_mean_eval_loss = mean_eval_loss

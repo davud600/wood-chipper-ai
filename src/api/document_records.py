@@ -1,13 +1,17 @@
 import requests
 import json
 
+from typing import Dict
+
+from src.utils import api_url
+
 
 def create_document_record(
     token: str, transaction_id: int, parent_document_id: int | None = None
 ) -> tuple[int, str]:
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"http://localhost:3001/api/common-document?transactionId={transaction_id}&parentDocumentId={parent_document_id}",
+        f"{api_url}/api/common-document?transactionId={transaction_id}&parentDocumentId={parent_document_id}",
         headers=headers,
     )
 
@@ -24,7 +28,7 @@ def create_document_record(
 def add_document_to_client_queue(token: str, document_id: int):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"http://localhost:3001/api/common-document-processor/finished_uploading_sub_document?transactionId={transaction_id}&documentId={document_id}",
+        f"{api_url}/api/common-document-processor/finished_uploading_sub_document?documentId={document_id}",
         headers=headers,
     )
 
@@ -36,8 +40,21 @@ def add_document_to_client_queue(token: str, document_id: int):
 def notify_for_finished_splitting(token: str, parent_document_id: int):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"http://localhost:3001/api/common-document-processor/finished_splitting_document?transactionId={transaction_id}&parentDocumentId={document_id}",
+        f"{api_url}/api/common-document-processor/finished_splitting_document?parentDocumentId={parent_document_id}",
         headers=headers,
+    )
+
+    if not response.ok:
+        print(response.text)
+        raise Exception("Failed to notify server.")
+
+
+def notify_for_finished_processing(token: str, document_id: int, data: Dict[str, str]):
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.post(
+        f"{api_url}/api/common-document-processor/finished_processing_document?documentId={document_id}",
+        headers=headers,
+        json=data,
     )
 
     if not response.ok:

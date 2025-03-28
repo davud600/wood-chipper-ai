@@ -9,11 +9,13 @@ class SplitterModel(nn.Module):
     def __init__(
         self,
         input_size: int = max_length,
-        output_size: int = 2,
+        output_size: int = 1,
         hidden_size: int = 2048,
         vocab_size: int = 60000,
+        pos_weight: float = 1.0,
     ) -> None:
         super().__init__()
+        self.pos_weight = pos_weight
         self.embedding = nn.Embedding(vocab_size, input_size)
         self.fc = nn.Linear(input_size, hidden_size)
         self.hidden = nn.Linear(hidden_size, hidden_size)
@@ -58,10 +60,16 @@ class SplitterModel(nn.Module):
         x = self.hidden_3(x)
         x = self.dropout(F.relu(x))
 
-        logits = self.out(x)
+        logits = self.out(x).squeeze(-1)
 
         if labels is not None:
-            loss_fn = nn.CrossEntropyLoss()
+            labels = labels.float()
+
+            loss_fn = nn.BCEWithLogitsLoss(
+                pos_weight=torch.tensor([self.pos_weight], dtype=torch.float16).to(
+                    "cuda"
+                )
+            )
             loss = loss_fn(logits, labels)
 
             return (

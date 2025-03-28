@@ -1,62 +1,96 @@
-from PIL import Image
-from cv2.typing import MatLike
-
-import numpy as np
 import pytesseract
-import fitz
 import random
 import cv2
 import csv
-import io
 import re
 import os
+
+from cv2.typing import MatLike
 
 from src.custom_types import Dataset
 
 
-tesseract_config = r"--oem 3 --psm 3"
+api_url = "http://localhost:3001"
 max_length = 3064
 pages_to_append = 4
-training_mini_batch_size = 6
-testing_mini_batch_size = 6
+training_mini_batch_size = 8
+testing_mini_batch_size = 8
 learning_rate = 0.00005
-weight_decay = 0.01
+weight_decay = 0.005
 patience = 10
 factor = 0.5
-epochs = 5
+epochs = 10
 log_steps = 10
 eval_steps = 50
 pymupdf_dpi = 300
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
-MODEL_PATH = os.path.join(project_root, "model", "model.pth")
+SPLITTER_MODEL_PATH = os.path.join(project_root, "models", "splitter.pth")
 DOWNLOADS_DIR = os.path.join(project_root, "downloads")
-IMAGES_DIR = os.path.join(project_root, "pdf_images")
-PROCESSING_IMAGES_DIR = os.path.join(project_root, "processing_images")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "split_documents")
-TRAINING_DATA_CSV = os.path.join(project_root, "training_data.csv")
-TESTING_DATA_CSV = os.path.join(project_root, "testing_data.csv")
-PDF_DIR = os.path.join(project_root, "pdfs")
-EDGE_CASES_FILE_PATH = os.path.join(project_root, "bad_files.txt")
+TRAINING_DATA_CSV = os.path.join(project_root, "dataset", "training_data.csv")
+TESTING_DATA_CSV = os.path.join(project_root, "dataset", "testing_data.csv")
+PDF_DIR = os.path.join(project_root, "dataset", "pdfs")
+EDGE_CASES_FILE_PATH = os.path.join(project_root, "dataset", "bad_files.txt")
 
 # pymupdf_dpi = 72
 PAGE_SIMILARITY_THRESHOLD = 0.7
-TRAINING_PERCENTAGE = 0.8
-TYPES = {
+TRAINING_PERCENTAGE = 0.75
+DOCUMENT_TYPES = {
     "unknown": 0,
-    "original-lease": 1,
-    "lease-renewal": 2,
-    "closing-document": 3,
+    "lease": 1,
+    "lease-agreement": 2,
+    "lease-renewal": 3,
     "sublease": 4,
-    "renovation-alteration-document": 5,
-    "proprietary-lease": 6,
-    "purchase-application": 7,
-    "refinance-document": 8,
-    "tenant-correspondence": 9,
-    "transfer-document": 10,
-    "sublease-renewal": 11,
-    "transfer-of-title": 12,
+    "sublease-agreement": 5,
+    "sublease-renewal": 6,
+    "proprietary-lease": 7,
+    "tenant-correspondence": 8,
+    "transfer-of-title": 9,
+    "purchase-application": 10,
+    "closing-document": 11,
+    "alteration-document": 12,
+    "renovation-document": 13,
+    "refinance-document": 14,
+    "transfer-document": 15,
 }
+
+
+def get_document_type(file_name: str) -> int:
+    file_name = file_name.replace("-", " ").replace("_", " ")
+
+    if "proprietary" in file_name.lower():
+        return DOCUMENT_TYPES["proprietary-lease"]
+    elif "tenant correspondence" in file_name.lower():
+        return DOCUMENT_TYPES["tenant-correspondence"]
+    elif "transfer" in file_name.lower() and "title" in file_name.lower():
+        return DOCUMENT_TYPES["transfer-of-title"]
+    elif "purchase" in file_name.lower():
+        return DOCUMENT_TYPES["purchase-application"]
+    elif "closing" in file_name.lower():
+        return DOCUMENT_TYPES["closing-document"]
+    elif "alteration" in file_name.lower():
+        return DOCUMENT_TYPES["alteration-document"]
+    elif "renovation" in file_name.lower():
+        return DOCUMENT_TYPES["renovation-document"]
+    elif "refinance" in file_name.lower():
+        return DOCUMENT_TYPES["refinance-document"]
+    elif "transfer" in file_name.lower():
+        return DOCUMENT_TYPES["transfer-document"]
+    elif "lease renewal" in file_name.lower():
+        return DOCUMENT_TYPES["lease-renewal"]
+    elif "lease agreement" in file_name.lower():
+        return DOCUMENT_TYPES["lease-agreement"]
+    elif "lease" in file_name.lower():
+        return DOCUMENT_TYPES["lease"]
+    elif "sublease renewal" in file_name.lower():
+        return DOCUMENT_TYPES["sublease-renewal"]
+    elif "sublease agreement" in file_name.lower():
+        return DOCUMENT_TYPES["sublease-agreement"]
+    elif "sublease" in file_name.lower():
+        return DOCUMENT_TYPES["sublease"]
+
+    return DOCUMENT_TYPES["unknown"]
 
 
 def clean_text(text: str) -> str:
@@ -105,41 +139,18 @@ def correct_rotation(
     return image
 
 
-def render_and_preprocess_page_in_memory(doc: fitz.open, page_num: int):
-    page = doc.load_page(page_num)
-    pix = page.get_pixmap(dpi=pymupdf_dpi)
-    img_data = pix.tobytes("png")
-    image = Image.open(io.BytesIO(img_data))
-    image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-
-    try:
-        image = correct_rotation(image)
-    except Exception as e:
-        print(e)
-
-    # Preprocessing steps
-    # image = normalize_image(image)
-    # image = correct_skew(image)
-    # image = remove_noise(image)
-    # image = binarize_image(image)
-    # image = cv2.adaptiveThreshold(
-    #     image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 8
-    # )
-
-    array_image = Image.fromarray(image)
-    # array_image.thumbnail((1920, 1080))
-    return array_image
-    # return image
-
-
-def get_dataset(path: str, mini_batch_size: int) -> Dataset:
+def get_dataset(path: str, mini_batch_size: int) -> tuple[Dataset, int, int]:
     data: list[tuple[str, int, int, str]] = []
     dataset: Dataset = []
     contents: list[str] = []
     pages: list[int] = []
     types: list[int] = []
+    N0 = 0
+    N1 = 0
+
     with open(file=path, mode="r", encoding="utf-8") as file:
         reader = csv.reader(file)
+
         for r, row in enumerate(reader):
             if r == 0:  # skip headers.
                 continue
@@ -147,15 +158,18 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
             data += [(str(row[0]), int(row[1]), int(row[2]), str(row[3]))]
 
     type_counters = [
-        {"first_page": 0, "not_first_page": 0} for _ in range(len(TYPES.keys()))
+        {"first_page": 0, "not_first_page": 0}
+        for _ in range(len(DOCUMENT_TYPES.keys()))
     ]
+
     for r, row in enumerate(data):
         content = row[0]
         page = row[1]
         type = row[2]
         file = row[3]
 
-        if page != 1 and random.random() > 0.2:
+        non_first_pages_prob = 0.5  # bigger -> more non-first pages.
+        if page != 1 and random.random() > non_first_pages_prob:
             continue
 
         content = f"<curr_page>{content}</curr_page>"
@@ -204,9 +218,14 @@ def get_dataset(path: str, mini_batch_size: int) -> Dataset:
             }
         )
 
-    for t, type in enumerate(list(TYPES.keys())):
+    N0 = 0
+    N1 = 0
+    for t, document_type in enumerate(list(DOCUMENT_TYPES.keys())):
+        N0 += type_counters[t]["not_first_page"]
+        N1 += type_counters[t]["first_page"]
+
         print(
-            f"{type}: {type_counters[t]["first_page"] + type_counters[t]["not_first_page"]} ({type_counters[t]["first_page"]}, {type_counters[t]["not_first_page"]})"
+            f"{document_type}: {type_counters[t]["first_page"] + type_counters[t]["not_first_page"]} ({type_counters[t]["first_page"]}, {type_counters[t]["not_first_page"]})"
         )
 
-    return dataset
+    return dataset, N0, N1

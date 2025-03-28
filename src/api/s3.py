@@ -37,5 +37,3 @@ def upload_file_to_s3(signed_put_url: str, path: str):
         raise Exception(
             f"Failed to upload file to S3. Status: {response.status_code}, Body: {response.text}"
         )
-
-    print(f"File uploaded successfully to S3.")

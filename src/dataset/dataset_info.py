@@ -1,6 +1,6 @@
 import pandas as pd
 
-from utils import TRAINING_DATA_CSV, TYPES
+from utils import TRAINING_DATA_CSV, DOCUMENT_TYPES
 
 
 csv_file = TRAINING_DATA_CSV
@@ -27,6 +27,6 @@ for type in data["type"].tolist():
     sum += 1
     type_counters[int(type)] += 1
 
-for t, type in enumerate(list(TYPES.keys())):
+for t, type in enumerate(list(DOCUMENT_TYPES.keys())):
     print(f"{type}: {type_counters[t]}")
 print(f"total: {sum}")

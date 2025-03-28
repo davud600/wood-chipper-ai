@@ -6,6 +6,7 @@ import cv2
 
 def normalize_image(image: MatLike) -> MatLike:
     dst = np.zeros_like(image)
+
     return cv2.normalize(
         image, dst, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
     )
@@ -31,6 +32,7 @@ def correct_skew(image):
     rotated = cv2.warpAffine(
         image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
     )
+
     return rotated
 
 

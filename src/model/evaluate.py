@@ -1,4 +1,4 @@
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, f1_score
 from transformers import AutoTokenizer
 
 import numpy as np
@@ -6,8 +6,8 @@ import torch
 
 from src.model.model import SplitterModel
 from src.utils import (
-    MODEL_PATH,
-    # TESTING_DATA_CSV,
+    SPLITTER_MODEL_PATH,
+    TESTING_DATA_CSV,
     get_dataset,
     max_length,
 )
@@ -20,14 +20,13 @@ if __name__ == "__main__":
         "allenai/longformer-base-4096", device="cuda"
     )
 
-    # testing_dataset = get_dataset(path=TESTING_DATA_CSV, mini_batch_size=1)
-    # testing_dataset = get_dataset(path=TRAINING_DATA_CSV, mini_batch_size=1)
-    testing_dataset = get_dataset(path="../example.csv", mini_batch_size=1)
+    testing_dataset, _, _ = get_dataset(path=TESTING_DATA_CSV, mini_batch_size=1)
+    # testing_dataset, _, _ = get_dataset(path="../example.csv", mini_batch_size=1)
 
     model = SplitterModel().to("cuda")
     model.eval()
     model.load_state_dict(
-        torch.load(MODEL_PATH, weights_only=False, map_location="cuda")
+        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
     )
 
     for mini_batch in testing_dataset:
@@ -48,10 +47,10 @@ if __name__ == "__main__":
         ).to("cuda")
 
         with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
-            loss, logits = model(features, labels)
+            loss, logit = model(features, labels)
 
             true = np.append(true, [labels.to("cpu").detach().numpy()[0]])
-            pred = np.append(pred, [torch.argmax(logits).to("cpu").detach().numpy()])
+            pred = np.append(pred, [int(logit > 0)])
 
     print("\n")
     correct = np.sum(true == pred)
@@ -60,4 +59,6 @@ if __name__ == "__main__":
     print(f"pages correct: {correct} / {len(true)}")
     print(f"accuracy: {round(correct / len(true), 4)}")
     print(confusion_matrix(true, pred))
+    f1 = f1_score(true, pred)
+    print(f"F1 score: {round(f1, 4)}")
     print("\n")

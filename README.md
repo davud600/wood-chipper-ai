@@ -2,10 +2,23 @@ DONE todo: start loop... -> convert pdf page to image -> get contents from image
 
 DONE todo: save doc contents in persistent memory (redis).
 
-todo: use easyOCR with gpu acceleration.
+DONE todo: use easyOCR with gpu acceleration.
 
-todo: fix inference on server.py, processing, training & evaluation.
+todo: fix:
+DONE processing,
+DONE training (bce with logit loss pos weight),
+DONE evaluation (f1 score),
+DONE inference (in server),
+
+todo: processing endpoint.
+avoid downloading file if contents already saved.
+
+todo: /root allocation.
+
+todo: tmux (lol).
 
 todo: custom tokenizer.
 
 todo: expirement with embedding layer.
+
+GOATED!! find . -maxdepth 1 -type f | head -n 10 | xargs -I{} cp "{}" .../wood-chipper-ai/dataset/pdfs/
