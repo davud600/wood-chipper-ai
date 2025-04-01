@@ -1,13 +1,23 @@
 import pytesseract
 import random
+import nltk
 import cv2
 import csv
 import re
 import os
 
+from autocorrect import Speller
 from cv2.typing import MatLike
 
 from src.custom_types import Dataset
+
+
+# light auto correct setup.
+nltk.download("words")
+from nltk.corpus import words
+
+english_words = set(w.lower() for w in words.words())
+spell = Speller(lang="en")
 
 
 api_url = "http://localhost:3001"
@@ -79,18 +89,18 @@ def get_document_type(file_name: str) -> int:
         return DOCUMENT_TYPES["refinance-document"]
     elif "transfer" in file_name.lower():
         return DOCUMENT_TYPES["transfer-document"]
-    elif "lease renewal" in file_name.lower():
-        return DOCUMENT_TYPES["lease-renewal"]
-    elif "lease agreement" in file_name.lower():
-        return DOCUMENT_TYPES["lease-agreement"]
-    elif "lease" in file_name.lower():
-        return DOCUMENT_TYPES["lease"]
     elif "sublease renewal" in file_name.lower():
         return DOCUMENT_TYPES["sublease-renewal"]
     elif "sublease agreement" in file_name.lower():
         return DOCUMENT_TYPES["sublease-agreement"]
     elif "sublease" in file_name.lower():
         return DOCUMENT_TYPES["sublease"]
+    elif "lease renewal" in file_name.lower():
+        return DOCUMENT_TYPES["lease-renewal"]
+    elif "lease agreement" in file_name.lower():
+        return DOCUMENT_TYPES["lease-agreement"]
+    elif "lease" in file_name.lower():
+        return DOCUMENT_TYPES["lease"]
 
     return DOCUMENT_TYPES["unknown"]
 
@@ -231,3 +241,34 @@ def get_dataset(path: str, mini_batch_size: int) -> tuple[Dataset, int, int]:
         )
 
     return dataset, N0, N1
+
+
+def is_safe_to_correct(word: str) -> bool:
+    if len(word) <= 3:
+        return False
+    if word.lower() in english_words:
+        return True
+    if re.match(r"^[A-Z0-9]+$", word):
+        return False
+    if any(char.isdigit() for char in word):
+        return False
+
+    return True
+
+
+def light_autocorrect(text: str) -> str:
+    corrected_words = []
+
+    for word in text.split():
+        if is_safe_to_correct(word):
+            corrected = spell(word)
+            corrected_words.append(corrected)
+        else:
+            corrected_words.append(word)
+
+    return " ".join(corrected_words)
+
+
+def split_into_n_chunks(lst, n):
+    k, m = divmod(len(lst), n)
+    return [lst[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n)]

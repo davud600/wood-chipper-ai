@@ -6,20 +6,35 @@ from typing import Dict
 from src.utils import api_url
 
 
-def create_document_record(
-    token: str, transaction_id: int, parent_document_id: int | None = None
-) -> tuple[int, str]:
+def create_document_record(token: str, data: Dict[str, str | int]) -> tuple[int, str]:
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"{api_url}/api/common-document?transactionId={transaction_id}&parentDocumentId={parent_document_id}",
-        headers=headers,
+        f"{api_url}/api/common-document", headers=headers, json=data
     )
 
     if not response.ok:
         raise Exception("Failed to create document record.")
 
     json_data = json.loads(response.text)
-    document_record_id = json_data.get("commonDocumentRecord").get("id")
+    document_record_id = json_data.get("commonDocument").get("id")
+    signed_put_url = json_data.get("signedPutUrl")
+
+    return document_record_id, signed_put_url
+
+
+def update_document_record(
+    token: str, id: int, data: Dict[str, str | int]
+) -> tuple[int, str]:
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.put(
+        f"{api_url}/api/common-document/{id}", headers=headers, json=data
+    )
+
+    if not response.ok:
+        raise Exception("Failed to create document record.")
+
+    json_data = json.loads(response.text)
+    document_record_id = json_data.get("commonDocument").get("id")
     signed_put_url = json_data.get("signedPutUrl")
 
     return document_record_id, signed_put_url

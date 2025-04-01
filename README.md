@@ -1,19 +1,21 @@
-DONE todo: start loop... -> convert pdf page to image -> get contents from image -> save to memory -> split -> ...end loop -> process -> delete image (if processed).
+DONE: start loop... -> convert pdf page to image -> get contents from image -> save to memory -> split -> ...end loop -> process -> delete image (if processed).
 
-DONE todo: save doc contents in persistent memory (redis).
+DONE: save doc contents in persistent memory (redis).
 
-DONE todo: use easyOCR with gpu acceleration.
+DONE: use easyOCR with gpu acceleration.
 
-todo: fix:
-DONE processing,
-DONE training (bce with logit loss pos weight),
-DONE evaluation (f1 score),
-DONE inference (in server),
+DONE: processing,
+DONE: training (bce with logit loss pos weight),
+DONE: evaluation (f1 score),
+DONE: inference (in server),
 
-DONE todo: processing endpoint.
-DONE avoid downloading file if contents already saved.
+DONE: todo: processing endpoint.
+DONE: avoid downloading file if contents already saved.
 
-todo: auto correct with regex on ocr.
+DONE: auto correct on ocr.
+
+DONE: dataset parallel processing,
+DONE: split pdf list & spawn multiple processes writing to different files processing different pdfs.
 
 todo: custom tokenizer.
 

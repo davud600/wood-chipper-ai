@@ -5,6 +5,7 @@ import numpy as np
 import fitz  # PyMuPDF
 import random
 import csv
+import sys
 import os
 import re
 
@@ -23,11 +24,18 @@ from src.utils import (
     TRAINING_PERCENTAGE,
     DOCUMENT_TYPES,
     get_document_type,
+    split_into_n_chunks,
 )
 
+process_name = sys.argv[1] if len(sys.argv) > 1 else "default"
+total_processes = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+print(f"running process: p-{process_name}")
 
-training_write_header = not os.path.exists(TRAINING_DATA_CSV)
-testing_write_header = not os.path.exists(TESTING_DATA_CSV)
+training_data_csv = f"{TRAINING_DATA_CSV.replace('.csv', '')}-{process_name}.csv"
+testing_data_csv = f"{TESTING_DATA_CSV.replace('.csv', '')}-{process_name}.csv"
+
+training_write_header = not os.path.exists(training_data_csv)
+testing_write_header = not os.path.exists(testing_data_csv)
 
 
 def get_data_from_pdf(page: int, document_type: int, doc: fitz.open) -> DatasetRow:
@@ -67,12 +75,13 @@ def get_edge_cases(edge_cases_file_path: str) -> EdgeCaseFiles:
 if __name__ == "__main__":
     training_dataset_files = None
     testing_dataset_files = None
+
     if not training_write_header and not testing_write_header:
         with (
             open(
-                TRAINING_DATA_CSV, mode="r", encoding="utf-8", newline=""
+                training_data_csv, mode="r", encoding="utf-8", newline=""
             ) as train_file,
-            open(TESTING_DATA_CSV, mode="r", encoding="utf-8", newline="") as test_file,
+            open(testing_data_csv, mode="r", encoding="utf-8", newline="") as test_file,
         ):
             training_dataset_files = [
                 file for [_, _, _, file] in csv.reader(train_file)
@@ -89,8 +98,8 @@ if __name__ == "__main__":
     edge_case_files = get_edge_cases(edge_cases_file_path=EDGE_CASES_FILE_PATH)
 
     with (
-        open(TRAINING_DATA_CSV, mode="a", encoding="utf-8", newline="\n") as train_file,
-        open(TESTING_DATA_CSV, mode="a", encoding="utf-8", newline="\n") as test_file,
+        open(training_data_csv, mode="a", encoding="utf-8", newline="\n") as train_file,
+        open(testing_data_csv, mode="a", encoding="utf-8", newline="\n") as test_file,
     ):
         train_writer = csv.writer(train_file)
         test_writer = csv.writer(test_file)
@@ -102,6 +111,10 @@ if __name__ == "__main__":
             test_writer.writerow(headers)
 
         pdf_list = os.listdir(PDF_DIR)
+        chunks = split_into_n_chunks(pdf_list, total_processes)
+        pdf_list = chunks[int(process_name) - 1]
+        print(f"p-{process_name} - {pdf_list[:3]}...")
+
         for i, file in enumerate(pdf_list):
             document_type = get_document_type(file)
 
@@ -114,7 +127,7 @@ if __name__ == "__main__":
             if (training_dataset_files and testing_dataset_files) and (
                 file in training_dataset_files or file in testing_dataset_files
             ):
-                print("File already in dataset, skipping: ", file)
+                # print("file already in dataset, skipping: ", file)
                 type_counters[document_type] += 1
                 continue
 
@@ -125,19 +138,18 @@ if __name__ == "__main__":
             training = random.random() < TRAINING_PERCENTAGE
             pdf_path = os.path.join(PDF_DIR, file)
             print(
-                f"Processing {sum(list(type_counters)) + 1} / {len(pdf_list)} - {file}"
+                f"p-{process_name} processing {sum(list(type_counters)) + 1} / {len(pdf_list)} - {file}"
             )
 
             try:
                 doc = fitz.open(pdf_path)
             except Exception as e:
-                print(f"Error opening {pdf_path}: {e}")
+                print(f"error opening {pdf_path}: {e}")
                 open_errors[document_type] += 1
                 continue
 
-            print(len(doc))
             if len(doc) == 0:
-                print(f"No pages found in {pdf_path}")
+                print(f"no pages found in {pdf_path}")
                 doc.close()
                 no_pages[document_type] += 1
                 continue
@@ -156,9 +168,9 @@ if __name__ == "__main__":
             doc.close()
             type_counters[document_type] += 1
 
-    print("Processing completed.")
+    print(f"p-{process_name} processing completed.")
 
     for t, document_type in enumerate(list(DOCUMENT_TYPES.keys())):
-        print(f"count {document_type}: {type_counters[t]}")
-        print(f"open errors {document_type}: {open_errors[t]}")
-        print(f"no pages {document_type}: {no_pages[t]}")
+        print(f"p-{process_name} count {document_type}: {type_counters[t]}")
+        print(f"p-{process_name} open errors {document_type}: {open_errors[t]}")
+        print(f"p-{process_name} no pages {document_type}: {no_pages[t]}")

@@ -14,6 +14,7 @@ import fitz
 from src.utils import SPLITTER_MODEL_PATH, DELETE_REDIS_KEYS_TIMEOUT, pages_to_append
 from src.model.model import SplitterModel
 from src.api.s3 import download_s3_file, upload_file_to_s3
+from src.api.openai import request_data_points
 from src.api.document_records import (
     add_document_to_client_queue,
     create_document_record,
@@ -63,6 +64,7 @@ def handle_first_page(
     transaction_id: int,
     parent_document_id: int,
     merged_file_name: str,
+    idx: int,
 ):
     """
     prev_split_page 0-based -> previous first page (don't include in sub-doc).
@@ -71,31 +73,64 @@ def handle_first_page(
     transaction_id -> id of transaction associated with parent document.
     parent_document_id -> merged document record id.
     merged_file_name -> file name of merged document.
+    idx -> local sub doc iterator.
     """
 
     print(f"creating sub document {prev_split_page} - {page}...")
     document_id, signed_put_url = create_document_record(
-        token, transaction_id, parent_document_id
+        token,
+        {
+            "transactionId": transaction_id,
+            "parentDocumentId": parent_document_id,
+            "originalFileName": f"{merged_file_name.replace('.pdf', '')}-{idx}.pdf",
+        },
     )
 
     # update redis keys for doc contents to be used later on processing step.
     for i in range(page - prev_split_page):
+        pc = r.get(f"page_content:{parent_document_id}:{i + prev_split_page + 1}")
+
         print(
-            f"page_content:{document_id}:{i} => page_content:{parent_document_id}:{i + prev_split_page + 1}"
+            f"page_content:{document_id}:{i} => page_content:{parent_document_id}:{i + prev_split_page + 1} => {str(pc)[:30]}..."
         )
         r.set(
             f"page_content:{document_id}:{i}",
-            str(r.get(f"page_content:{parent_document_id}:{i + prev_split_page + 1}")),
+            str(pc),
         )
 
     sub_document_path = create_sub_document(
         merged_file_name, prev_split_page, page, document_id
     )
 
-    # print("uploading file to s3...")
     upload_file_to_s3(signed_put_url, sub_document_path)
     add_document_to_client_queue(token, document_id)
     r.set(f"prev_split_page:{parent_document_id}", page + offset)
+
+
+def clear_keys_from_redis(document_id: int, split: bool = False):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_split_page = None
+
+        if split:
+            future_split_page = executor.submit(
+                lambda: (lambda keys: r.delete(*keys) if keys else None)(
+                    list(r.scan_iter(f"prev_split_page:{document_id}"))
+                )
+            )
+
+        future_contents = executor.submit(
+            lambda: (lambda keys: r.delete(*keys) if keys else None)(
+                list(r.scan_iter(f"page_content:{document_id}:*"))
+            )
+        )
+
+        try:
+            if split and future_split_page:
+                future_split_page.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
+
+            future_contents.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
+        except concurrent.futures.TimeoutError:
+            print("Timeout: clearing keys took too long.")
 
 
 # --------------------------------------------------------
@@ -219,9 +254,9 @@ def split_request(
 
     r.set(f"prev_split_page:{parent_document_id}", -1)
 
+    sub_docs = 0
     for i in range(0, document_pages, 1):
         try:
-            # extract page contents if not on redis.
             page_content = r.get(f"page_content:{parent_document_id}:{i}")
             if page_content is None:
                 page_image = convert_pdf_page_to_image(merged_file_name, i)
@@ -232,10 +267,8 @@ def split_request(
                 page_content = get_image_contents(page_image)
                 r.set(f"page_content:{parent_document_id}:{i}", page_content)
 
-            # extract contents of next pages if not on redis.
-            # todo: parallel.
             content = f"<curr_page>{page_content}</curr_page>"
-            for j in range(1, min(pages_to_append, document_pages - i), 1):
+            for j in range(1, min(pages_to_append + 1, document_pages - i), 1):
                 next_page_content = r.get(f"page_content:{parent_document_id}:{i + j}")
 
                 if next_page_content is None:
@@ -251,7 +284,10 @@ def split_request(
 
                 content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
 
-            print(f"#{parent_document_id} page {i + 1} content:", content[:30] + "...")
+            print(
+                f"#{parent_document_id} page {i} content:",
+                str(page_content)[:30] + "...",
+            )
 
             if i == 0:
                 continue
@@ -259,9 +295,9 @@ def split_request(
             first_page, offset = is_first_page(tokenizer, model, content)
 
             if first_page or i == document_pages - 1:
+                sub_docs += 1
                 print(f"\n#{parent_document_id} found first page: {i}")
 
-                # bg task...
                 try:
                     threading.Thread(
                         target=handle_first_page,
@@ -277,6 +313,7 @@ def split_request(
                             transaction_id,
                             parent_document_id,
                             merged_file_name,
+                            sub_docs,
                         ),
                     ).start()
                 except Exception as e:
@@ -285,25 +322,7 @@ def split_request(
             print(e)
 
     notify_for_finished_splitting(token, parent_document_id)
-
-    # clear keys from redis.
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_split_page = executor.submit(
-            lambda: (lambda keys: r.delete(*keys) if keys else None)(
-                list(r.scan_iter(f"prev_split_page:{parent_document_id}"))
-            )
-        )
-        future_contents = executor.submit(
-            lambda: (lambda keys: r.delete(*keys) if keys else None)(
-                list(r.scan_iter(f"page_content:{parent_document_id}:*"))
-            )
-        )
-
-        try:
-            future_split_page.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
-            future_contents.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
-        except concurrent.futures.TimeoutError:
-            print("Timeout: clearing keys took too long.")
+    clear_keys_from_redis(parent_document_id, True)
 
 
 def process_request(
@@ -321,13 +340,18 @@ def process_request(
 
     contents_exist = True
     for i in range(0, pages_to_append):
+        paget_content = r.get(f"page_content:{document_id}:{i}")
+
         print(
             f"#{document_id} page {i} content:",
-            f"{str(r.get(f"page_content:{document_id}:{i}"))[:30]}...",
+            f"{str(paget_content)[:30]}...",
         )
-        if r.get(f"page_content:{document_id}:{i}") is None:
+
+        if paget_content is None:
             contents_exist = False
             break
+
+    print(f"{file_name} - {contents_exist}")
 
     content = None
     if not contents_exist:
@@ -337,7 +361,6 @@ def process_request(
         document_pages = len(doc)
         doc.close()
 
-        # extract page contents if not on redis.
         page_image = convert_pdf_page_to_image(file_name, 0)
 
         page_content = ""
@@ -345,10 +368,9 @@ def process_request(
             page_content = get_image_contents(page_image)
             r.set(f"page_content:{document_id}:{0}", page_content)
 
-        # extract contents of next pages if not on redis.
-        # todo: parallel.
         content = f"<curr_page>{page_content}</curr_page>"
-        for j in range(1, min(pages_to_append, document_pages), 1):
+
+        for j in range(1, min(pages_to_append + 1, document_pages), 1):
             next_page_image = convert_pdf_page_to_image(file_name, j)
 
             next_page_content = ""
@@ -359,31 +381,17 @@ def process_request(
             content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
     else:
         page_content = str(r.get(f"page_content:{document_id}:{0}"))
-
-        # extract contents of next pages if not on redis.
-        # todo: parallel.
         content = f"<curr_page>{page_content}</curr_page>"
-        for j in range(1, pages_to_append, 1):
+
+        for j in range(1, pages_to_append + 1, 1):
             next_page_content = str(r.get(f"page_content:{document_id}:{j}"))
             content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
 
-    # print(f"#{document_id} content:", content[:30] + "...")
+    data = request_data_points(content)
+    print("data:", data)
 
-    data = {}  # prcessing...
     notify_for_finished_processing(token, document_id, data)
-
-    # clear keys from redis.
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(
-            lambda: (lambda keys: r.delete(*keys) if keys else None)(
-                list(r.scan_iter(f"page_content:{document_id}:*"))
-            )
-        )
-
-        try:
-            future.result(timeout=DELETE_REDIS_KEYS_TIMEOUT)
-        except concurrent.futures.TimeoutError:
-            print("Timeout: clearing keys took too long.")
+    clear_keys_from_redis(document_id)
 
 
 if __name__ == "__main__":

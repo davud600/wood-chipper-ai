@@ -9,10 +9,12 @@ from transformers import PreTrainedTokenizer
 from PIL import Image
 from io import BytesIO
 
+
 from src.utils import (
     DOWNLOADS_DIR,
     SPLIT_DOCUMENTS_DIR,
     clean_text,
+    light_autocorrect,
     max_length,
 )
 
@@ -81,8 +83,9 @@ def get_image_contents(file: np.ndarray) -> str:
         results = reader.readtext(file, detail=0, paragraph=False, decoder="greedy")
         content = " ".join(results)
         content = clean_text(content)
+        content = content.replace("\n", " ")
 
-        return content.replace("\n", " ")
+        return light_autocorrect(content)
     except Exception as e:
         print(f"failed to get image conents:", e)
 
@@ -116,21 +119,3 @@ def create_sub_document(file_name: str, start_page: int, end_page: int, id: int)
     sub_doc.save(output_path)
 
     return output_path
-
-    # images_dir = os.path.join(PROCESSING_IMAGES_DIR, file_name.replace(".pdf", ""))
-    # split_doc_path = os.path.join(SPLIT_DOCUMENTS_DIR, file_name, f"{id}.pdf")
-    #
-    # os.makedirs(os.path.dirname(split_doc_path), exist_ok=True)
-    #
-    # image_files = sorted(os.listdir(images_dir))
-    # selected_images = image_files[start_page:end_page]
-    #
-    # image_paths = [os.path.join(images_dir, img) for img in selected_images]
-    # images = [Image.open(path) for path in image_paths]
-    #
-    # if not images:
-    #     raise ValueError("No images found to generate PDF.")
-    #
-    # images[0].save(split_doc_path, save_all=True, append_images=images[1:])
-    #
-    # return split_doc_path
