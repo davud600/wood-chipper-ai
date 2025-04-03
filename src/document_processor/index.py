@@ -2,7 +2,8 @@ import torch.nn as nn
 import numpy as np
 import easyocr
 import torch
-import redis
+
+# import redis
 import fitz
 import nltk
 import os
@@ -72,7 +73,7 @@ def convert_pdf_page_to_image(
 
     try:
         pix = doc.load_page(page).get_pixmap(  # type: ignore
-            matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY
+            matrix=fitz.Matrix(1, 1), colorspace=fitz.csGRAY
         )
         img = Image.open(BytesIO(pix.tobytes("jpg")))
 
@@ -128,33 +129,33 @@ def create_sub_document(file_name: str, start_page: int, end_page: int, id: int)
     return output_path
 
 
-def get_formatted_page_content_from_file_or_redis(
-    document_id: int,
-    file_name: str,
-    page: int,  # 0-based.
-    page_content: str,
-    pages_to_append: int,
-    r: redis.Redis,
-    document_pages: int = 10,
-    doc: fitz.open | None = None,
-    check_redis: bool = False,
-) -> str:
-    content = f"<curr_page>{page_content}</curr_page>"
-
-    for j in range(1, min(pages_to_append + 1, document_pages - page), 1):
-        next_page_content = None
-
-        if check_redis:
-            next_page_content = r.get(f"page_content:{document_id}:{page + j}")
-
-        if next_page_content is None and doc is not None:
-            next_page_image = convert_pdf_page_to_image(file_name, page + j, doc)
-
-            next_page_content = ""
-            if next_page_image is not None:
-                next_page_content = get_image_contents(next_page_image)
-                r.set(f"page_content:{document_id}:{page + j}", next_page_content)
-
-        content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
-
-    return content
+# def get_formatted_page_content_from_file_or_redis(
+#     document_id: int,
+#     file_name: str,
+#     page: int,  # 0-based.
+#     page_content: str,
+#     pages_to_append: int,
+#     r: redis.Redis,
+#     document_pages: int = 10,
+#     doc: fitz.open | None = None,
+#     check_redis: bool = False,
+# ) -> str:
+#     content = f"<curr_page>{page_content}</curr_page>"
+#
+#     for j in range(1, min(pages_to_append + 1, document_pages - page), 1):
+#         next_page_content = None
+#
+#         if check_redis:
+#             next_page_content = r.get(f"page_content:{document_id}:{page + j}")
+#
+#         if next_page_content is None and doc is not None:
+#             next_page_image = convert_pdf_page_to_image(file_name, page + j, doc)
+#
+#             next_page_content = ""
+#             if next_page_image is not None:
+#                 next_page_content = get_image_contents(next_page_image)
+#                 r.set(f"page_content:{document_id}:{page + j}", next_page_content)
+#
+#         content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
+#
+#     return content

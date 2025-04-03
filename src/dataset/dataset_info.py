@@ -26,8 +26,9 @@ sum = 0
 
 
 csv_files = [
-    f"{TRAINING_DATA_CSV.replace('.csv', '')}-1.csv",
-    f"{TRAINING_DATA_CSV.replace('.csv', '')}-2.csv",
+    # f"{TRAINING_DATA_CSV.replace('.csv', '')}-1.csv",
+    # f"{TRAINING_DATA_CSV.replace('.csv', '')}-2.csv",
+    TRAINING_DATA_CSV
 ]
 
 for csv_file in csv_files:

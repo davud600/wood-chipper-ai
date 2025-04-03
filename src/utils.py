@@ -15,10 +15,10 @@ api_url = "http://localhost:3001"
 max_length = 3064
 pages_to_append = 4
 max_vocab_size = 60000
-training_mini_batch_size = 14
-testing_mini_batch_size = 14
-learning_rate = 0.00005
-weight_decay = 0.005
+training_mini_batch_size = 16
+testing_mini_batch_size = 16
+learning_rate = 0.000065
+weight_decay = 0.0075
 patience = 10
 factor = 0.5
 epochs = 1
@@ -240,3 +240,7 @@ def split_into_n_chunks(lst, n):
     k, m = divmod(len(lst), n)
 
     return [lst[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n)]
+
+
+def split_arr(arr, size):
+    return [arr[i : i + size] for i in range(0, len(arr), size)]
