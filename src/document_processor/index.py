@@ -2,7 +2,9 @@ import torch.nn as nn
 import numpy as np
 import easyocr
 import torch
+import redis
 import fitz
+import nltk
 import os
 
 from transformers import PreTrainedTokenizer
@@ -17,6 +19,12 @@ from src.utils import (
     light_autocorrect,
     max_length,
 )
+
+# light auto correct setup.
+nltk.download("words")
+from nltk.corpus import words
+
+english_words = set(w.lower() for w in words.words())
 
 reader = easyocr.Reader(["en"], gpu=True)
 
@@ -52,7 +60,9 @@ def is_first_page(
     return False, 0
 
 
-def convert_pdf_page_to_image(file_name: str, page: int) -> np.ndarray | None:
+def convert_pdf_page_to_image(
+    file_name: str, page: int, doc: fitz.open
+) -> np.ndarray | None:
     """
     file_name -> file name of pdf inside downloads dir.
     page -> 0-based.
@@ -61,9 +71,6 @@ def convert_pdf_page_to_image(file_name: str, page: int) -> np.ndarray | None:
     """
 
     try:
-        file_path = f"{DOWNLOADS_DIR}/{file_name}"
-        doc = fitz.open(file_path)
-
         pix = doc.load_page(page).get_pixmap(  # type: ignore
             matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY
         )
@@ -85,7 +92,7 @@ def get_image_contents(file: np.ndarray) -> str:
         content = clean_text(content)
         content = content.replace("\n", " ")
 
-        return light_autocorrect(content)
+        return light_autocorrect(english_words, content)
     except Exception as e:
         print(f"failed to get image conents:", e)
 
@@ -119,3 +126,35 @@ def create_sub_document(file_name: str, start_page: int, end_page: int, id: int)
     sub_doc.save(output_path)
 
     return output_path
+
+
+def get_formatted_page_content_from_file_or_redis(
+    document_id: int,
+    file_name: str,
+    page: int,  # 0-based.
+    page_content: str,
+    pages_to_append: int,
+    r: redis.Redis,
+    document_pages: int = 10,
+    doc: fitz.open | None = None,
+    check_redis: bool = False,
+) -> str:
+    content = f"<curr_page>{page_content}</curr_page>"
+
+    for j in range(1, min(pages_to_append + 1, document_pages - page), 1):
+        next_page_content = None
+
+        if check_redis:
+            next_page_content = r.get(f"page_content:{document_id}:{page + j}")
+
+        if next_page_content is None and doc is not None:
+            next_page_image = convert_pdf_page_to_image(file_name, page + j, doc)
+
+            next_page_content = ""
+            if next_page_image is not None:
+                next_page_content = get_image_contents(next_page_image)
+                r.set(f"page_content:{document_id}:{page + j}", next_page_content)
+
+        content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
+
+    return content

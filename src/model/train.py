@@ -1,17 +1,25 @@
 from transformers import AutoTokenizer
+
 import numpy as np
+
+# import pickle
 import random
 import torch
 import os
 
+
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
+# from src.custom_types import Dataset
+# from src.model.tokenizer import CustomTokenizer
 from src.model.model import SplitterModel
 
 from src.utils import (
     SPLITTER_MODEL_PATH,
     TESTING_DATA_CSV,
     TRAINING_DATA_CSV,
+    # TOKENIZER_PATH,
+    # special_tokens,
     get_dataset,
     max_length,
     learning_rate,
@@ -29,13 +37,42 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(
         "allenai/longformer-base-4096", device="cuda"
     )
+    # tokenizer.add_tokens(special_tokens)
+
+    # with open(TOKENIZER_PATH, "rb") as file:
+    #     tokenizer: CustomTokenizer = pickle.load(file)
+    #
+    # assert tokenizer is not None
 
     training_dataset, N0, N1 = get_dataset(
-        path=TRAINING_DATA_CSV, mini_batch_size=training_mini_batch_size
+        path=TRAINING_DATA_CSV,
+        mini_batch_size=training_mini_batch_size,
     )
     testing_dataset, _, _ = get_dataset(
-        path=TESTING_DATA_CSV, mini_batch_size=testing_mini_batch_size
+        path=TESTING_DATA_CSV,
+        mini_batch_size=testing_mini_batch_size,
     )
+
+    # training_dataset: Dataset = []
+    # testing_dataset: Dataset = []
+    # N0 = 0
+    # N1 = 0
+    #
+    # for i in range(1, 3, 1):
+    #     training, n0, n1 = get_dataset(
+    #         path=f"{TRAINING_DATA_CSV.replace('.csv', '')}-{i}.csv",
+    #         mini_batch_size=training_mini_batch_size,
+    #     )
+    #     testing, _, _ = get_dataset(
+    #         path=f"{TESTING_DATA_CSV.replace('.csv', '')}-{i}.csv",
+    #         mini_batch_size=testing_mini_batch_size,
+    #     )
+    #
+    #     training_dataset += training
+    #     testing_dataset += testing
+    #
+    #     N0 += n0
+    #     N1 += n1
 
     model = SplitterModel(pos_weight=N0 / N1).to("cuda")
     scaler = torch.amp.grad_scaler.GradScaler()
@@ -61,6 +98,7 @@ if __name__ == "__main__":
                 padding="max_length",
                 max_length=max_length,
             )
+            # tokenized = tokenizer(mini_batch["features"], max_length=max_length)
 
             features = tokenized.input_ids.to("cuda")
             labels = torch.stack(
@@ -95,6 +133,10 @@ if __name__ == "__main__":
                         padding="max_length",
                         max_length=max_length,
                     )
+                    # tokenized = tokenizer(
+                    #     test_mini_batch["features"],
+                    #     max_length=max_length,
+                    # )
 
                     test_features = tokenized.input_ids.to("cuda")
                     test_labels = torch.stack(

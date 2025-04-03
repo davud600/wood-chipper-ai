@@ -1,35 +1,10 @@
+import torch
+import pickle
+import re
+
 from collections import Counter
 
-# from torch.utils.data import Dataset, DataLoader
-# import torch.optim as optim
-# import torch.nn as nn
-# import torch
-# import re
-
-corpus_file = "./corpus.txt"
-
-# import csv
-
-# content = ""
-# with (
-#     open(TRAINING_DATA_CSV, mode="r", encoding="utf-8") as train_file,
-#     open(TESTING_DATA_CSV, mode="r", encoding="utf-8") as test_file,
-# ):
-#     train_reader = csv.reader(train_file)
-#     test_reader = csv.reader(test_file)
-#     for row in train_reader:
-#         if row[0] == "content":  # skip headers.
-#             continue
-#
-#         content += str(row[0])
-#     for row in test_reader:
-#         if row[0] == "content":  # skip headers.
-#             continue
-#
-#         content += str(row[0])
-#
-# with open(corpus_file, mode="w", encoding="utf-8") as file:
-#     file.write(content)
+from src.utils import special_tokens, max_vocab_size, CORPUS_FILE, TOKENIZER_PATH
 
 
 class CustomTokenizer:
@@ -39,20 +14,15 @@ class CustomTokenizer:
         self.special_tokens = special_tokens if special_tokens else []
 
     def tokenize(self, text):
-        import re
-
-        # Basic word-level tokenization
         return re.findall(r"\b\w+\b", text.lower())
 
     def fit(self, corpus_file, max_vocab_size=None):
         with open(corpus_file, "r", encoding="utf-8") as f:
             text = f.read()
-        tokens = self.tokenize(text)
 
-        # Count token frequencies
+        tokens = self.tokenize(text)
         token_counts = Counter(tokens)
 
-        # Get the most common tokens
         if max_vocab_size:
             most_common = token_counts.most_common(
                 max_vocab_size - len(self.special_tokens)
@@ -61,14 +31,13 @@ class CustomTokenizer:
         else:
             vocab_tokens = list(token_counts.keys())
 
-        # Prepend special tokens to vocab if they're not already there
         self.idx_to_token = self.special_tokens + vocab_tokens
         self.token_to_idx = {token: idx for idx, token in enumerate(self.idx_to_token)}
 
     def encode(self, text, max_length=4096):
         tokens = self.tokenize(text)
-        tokens = tokens[:max_length]  # truncate if necessary
-        # Map tokens to indices; use a default (e.g., 0) for unknown tokens
+        tokens = tokens[:max_length]
+
         return [self.token_to_idx.get(token, 0) for token in tokens]
 
     def decode(self, indices):
@@ -77,24 +46,28 @@ class CustomTokenizer:
     def vocab_size(self):
         return len(self.token_to_idx)
 
+    def __call__(self, batch_texts: list[str], max_length=4096, padding="max_length"):
+        batch_ids = []
 
-special_tokens = [
-    "<curr_page>",
-    "</curr_page>",
-    "<next_page_1>",
-    "</next_page_1>",
-    "<next_page_2>",
-    "</next_page_2>",
-    "<next_page_3>",
-    "</next_page_3>",
-    "<next_page_4>",
-    "</next_page_4>",
-    "<next_page_5>",
-    "</next_page_5>",
-    "<next_page_6>",
-    "</next_page_6>",
-    "<next_page_7>",
-    "</next_page_7>",
-]
-tokenizer = CustomTokenizer(special_tokens=special_tokens)
-tokenizer.fit(corpus_file, max_vocab_size=50000)
+        for text in batch_texts:
+            token_ids = self.encode(text, max_length=max_length)
+            if padding == "max_length":
+                token_ids += [0] * (max_length - len(token_ids))  # pad with 0
+            batch_ids.append(token_ids)
+
+        return CustomBatchOutput(torch.tensor(batch_ids, dtype=torch.long))
+
+
+class CustomBatchOutput:
+    def __init__(self, input_ids: torch.Tensor):
+        self.input_ids = input_ids
+
+
+if __name__ == "__main__":
+    tokenizer = CustomTokenizer(special_tokens=special_tokens)
+    tokenizer.fit(CORPUS_FILE, max_vocab_size=max_vocab_size)
+
+    with open(file=TOKENIZER_PATH, mode="wb") as file:
+        pickle.dump(
+            tokenizer, file, protocol=None, fix_imports=True, buffer_callback=None
+        )

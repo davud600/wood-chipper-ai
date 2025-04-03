@@ -1,42 +1,45 @@
-import pytesseract
 import random
-import nltk
-import cv2
 import csv
 import re
 import os
 
 from autocorrect import Speller
-from cv2.typing import MatLike
 
 from src.custom_types import Dataset
 
 
-# light auto correct setup.
-nltk.download("words")
-from nltk.corpus import words
-
-english_words = set(w.lower() for w in words.words())
 spell = Speller(lang="en")
 
 
 api_url = "http://localhost:3001"
 max_length = 3064
 pages_to_append = 4
-training_mini_batch_size = 8
-testing_mini_batch_size = 8
+max_vocab_size = 60000
+training_mini_batch_size = 14
+testing_mini_batch_size = 14
 learning_rate = 0.00005
 weight_decay = 0.005
 patience = 10
 factor = 0.5
-epochs = 2
+epochs = 1
 log_steps = 10
 eval_steps = 50
 pymupdf_dpi = 300
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
+
+special_tokens = [
+    "<curr_page>",
+    "</curr_page>",
+]
+
+for i in range(1, pages_to_append + 1, 1):
+    special_tokens += [f"<next_page_{i}>", f"</next_page_{i}>"]
+
 DELETE_REDIS_KEYS_TIMEOUT = 60
 
+CORPUS_FILE = os.path.join(project_root, "dataset", "corpus.txt")
+TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
 SPLITTER_MODEL_PATH = os.path.join(project_root, "models", "splitter.pth")
 DOWNLOADS_DIR = os.path.join(project_root, "downloads")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "split_documents")
@@ -69,37 +72,37 @@ DOCUMENT_TYPES = {
 
 
 def get_document_type(file_name: str) -> int:
-    file_name = file_name.replace("-", " ").replace("_", " ")
+    file_name = file_name.replace("-", " ").replace("_", " ").lower()
 
-    if "proprietary" in file_name.lower():
+    if "proprietary" in file_name:
         return DOCUMENT_TYPES["proprietary-lease"]
-    elif "tenant correspondence" in file_name.lower():
+    elif "tenant correspondence" in file_name:
         return DOCUMENT_TYPES["tenant-correspondence"]
-    elif "transfer" in file_name.lower() and "title" in file_name.lower():
+    elif "transfer" in file_name and "title" in file_name.lower():
         return DOCUMENT_TYPES["transfer-of-title"]
-    elif "purchase" in file_name.lower():
+    elif "purchase" in file_name:
         return DOCUMENT_TYPES["purchase-application"]
-    elif "closing" in file_name.lower():
+    elif "closing" in file_name:
         return DOCUMENT_TYPES["closing-document"]
-    elif "alteration" in file_name.lower():
+    elif "alteration" in file_name:
         return DOCUMENT_TYPES["alteration-document"]
-    elif "renovation" in file_name.lower():
+    elif "renovation" in file_name:
         return DOCUMENT_TYPES["renovation-document"]
-    elif "refinance" in file_name.lower():
+    elif "refinance" in file_name:
         return DOCUMENT_TYPES["refinance-document"]
-    elif "transfer" in file_name.lower():
+    elif "transfer" in file_name:
         return DOCUMENT_TYPES["transfer-document"]
-    elif "sublease renewal" in file_name.lower():
+    elif "sublease renewal" in file_name:
         return DOCUMENT_TYPES["sublease-renewal"]
-    elif "sublease agreement" in file_name.lower():
+    elif "sublease agreement" in file_name:
         return DOCUMENT_TYPES["sublease-agreement"]
-    elif "sublease" in file_name.lower():
+    elif "sublease" in file_name:
         return DOCUMENT_TYPES["sublease"]
-    elif "lease renewal" in file_name.lower():
+    elif "lease renewal" in file_name:
         return DOCUMENT_TYPES["lease-renewal"]
-    elif "lease agreement" in file_name.lower():
+    elif "lease agreement" in file_name:
         return DOCUMENT_TYPES["lease-agreement"]
-    elif "lease" in file_name.lower():
+    elif "lease" in file_name:
         return DOCUMENT_TYPES["lease"]
 
     return DOCUMENT_TYPES["unknown"]
@@ -113,42 +116,6 @@ def clean_text(text: str) -> str:
     # Remove extraneous punctuation
     text = re.sub(r'[^a-zA-Z0-9.,;:\'"\-\s]', "", text)
     return text
-
-
-def detect_rotation(image: MatLike) -> tuple[int, float]:
-    """Detect if the image is rotated based on OCR text orientation."""
-
-    osd = pytesseract.image_to_osd(image)
-    angle = int(osd.split("Rotate: ")[1].split("\n")[0])
-    confidence = float(osd.split("Orientation confidence: ")[1].split("\n")[0])
-
-    return angle, confidence
-
-
-def correct_rotation(
-    image: MatLike,
-) -> MatLike:
-    """Corrects the rotation based on detected text orientation."""
-
-    angle, confidence = detect_rotation(image)
-    for _ in range(4):
-        if confidence >= 3.0:
-            break
-
-        image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-        try:
-            angle, confidence = detect_rotation(image)
-        except:
-            continue
-
-    if angle == 90:
-        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-    elif angle == 270:
-        return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    elif angle == 180:
-        return cv2.rotate(image, cv2.ROTATE_180)
-
-    return image
 
 
 def get_dataset(path: str, mini_batch_size: int) -> tuple[Dataset, int, int]:
@@ -180,7 +147,7 @@ def get_dataset(path: str, mini_batch_size: int) -> tuple[Dataset, int, int]:
         type = row[2]
         file = row[3]
 
-        non_first_pages_prob = 0.5  # bigger -> more non-first pages.
+        non_first_pages_prob = 1  # bigger -> more non-first pages.
         if page != 1 and random.random() > non_first_pages_prob:
             continue
 
@@ -237,13 +204,13 @@ def get_dataset(path: str, mini_batch_size: int) -> tuple[Dataset, int, int]:
         N1 += type_counters[t]["first_page"]
 
         print(
-            f"{document_type}: {type_counters[t]["first_page"] + type_counters[t]["not_first_page"]} ({type_counters[t]["first_page"]}, {type_counters[t]["not_first_page"]})"
+            f"{document_type}: {type_counters[t]['first_page'] + type_counters[t]['not_first_page']} ({type_counters[t]['first_page']}, {type_counters[t]['not_first_page']})"
         )
 
     return dataset, N0, N1
 
 
-def is_safe_to_correct(word: str) -> bool:
+def is_safe_to_correct(english_words: set[str], word: str) -> bool:
     if len(word) <= 3:
         return False
     if word.lower() in english_words:
@@ -256,11 +223,11 @@ def is_safe_to_correct(word: str) -> bool:
     return True
 
 
-def light_autocorrect(text: str) -> str:
+def light_autocorrect(english_words: set[str], text: str) -> str:
     corrected_words = []
 
     for word in text.split():
-        if is_safe_to_correct(word):
+        if is_safe_to_correct(english_words, word):
             corrected = spell(word)
             corrected_words.append(corrected)
         else:
@@ -271,4 +238,5 @@ def light_autocorrect(text: str) -> str:
 
 def split_into_n_chunks(lst, n):
     k, m = divmod(len(lst), n)
+
     return [lst[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n)]

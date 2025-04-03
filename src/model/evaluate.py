@@ -4,6 +4,7 @@ from transformers import AutoTokenizer
 import numpy as np
 import torch
 
+# from src.custom_types import Dataset
 from src.model.model import SplitterModel
 from src.utils import (
     SPLITTER_MODEL_PATH,
@@ -20,8 +21,20 @@ if __name__ == "__main__":
         "allenai/longformer-base-4096", device="cuda"
     )
 
-    testing_dataset, _, _ = get_dataset(path=TESTING_DATA_CSV, mini_batch_size=1)
-    # testing_dataset, _, _ = get_dataset(path="../example.csv", mini_batch_size=1)
+    testing_dataset, _, _ = get_dataset(
+        path=TESTING_DATA_CSV,
+        mini_batch_size=1,
+    )
+
+    # testing_dataset: Dataset = []
+
+    # for i in range(1, 3, 1):
+    #     testing, _, _ = get_dataset(
+    #         path=f"{TESTING_DATA_CSV.replace('.csv', '')}-{i}.csv",
+    #         mini_batch_size=1,
+    #     )
+    #
+    #     testing_dataset += testing
 
     model = SplitterModel().to("cuda")
     model.eval()

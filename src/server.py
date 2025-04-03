@@ -1,13 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify
 from transformers import AutoTokenizer
-from typing import cast
 
 import concurrent.futures
 import threading
 import redis
 import torch
 import fitz
+
 
 # import csv  # temp: debugging.
 
@@ -26,6 +26,7 @@ from src.document_processor.index import (
     create_sub_document,
     get_image_contents,
     is_first_page,
+    get_formatted_page_content_from_file_or_redis,
 )
 
 
@@ -59,7 +60,6 @@ model.load_state_dict(
 def handle_first_page(
     prev_split_page: int,
     page: int,
-    offset: int,
     token: str,
     transaction_id: int,
     parent_document_id: int,
@@ -104,7 +104,6 @@ def handle_first_page(
 
     upload_file_to_s3(signed_put_url, sub_document_path)
     add_document_to_client_queue(token, document_id)
-    r.set(f"prev_split_page:{parent_document_id}", page + offset)
 
 
 def clear_keys_from_redis(document_id: int, split: bool = False):
@@ -250,7 +249,6 @@ def split_request(
     merged_doc = fitz.open(merged_file_path)
     document_pages = len(merged_doc)
     print("document_pages:", document_pages)
-    merged_doc.close()
 
     r.set(f"prev_split_page:{parent_document_id}", -1)
 
@@ -258,31 +256,28 @@ def split_request(
     for i in range(0, document_pages, 1):
         try:
             page_content = r.get(f"page_content:{parent_document_id}:{i}")
+
             if page_content is None:
-                page_image = convert_pdf_page_to_image(merged_file_name, i)
+                page_image = convert_pdf_page_to_image(merged_file_name, i, merged_doc)
 
                 if page_image is None:
+                    r.set(f"page_content:{parent_document_id}:{i}", "")
                     continue
 
                 page_content = get_image_contents(page_image)
                 r.set(f"page_content:{parent_document_id}:{i}", page_content)
 
-            content = f"<curr_page>{page_content}</curr_page>"
-            for j in range(1, min(pages_to_append + 1, document_pages - i), 1):
-                next_page_content = r.get(f"page_content:{parent_document_id}:{i + j}")
-
-                if next_page_content is None:
-                    next_page_image = convert_pdf_page_to_image(merged_file_name, i + j)
-
-                    if next_page_image is None:
-                        continue
-
-                    next_page_content = get_image_contents(next_page_image)
-                    r.set(
-                        f"page_content:{parent_document_id}:{i + j}", next_page_content
-                    )
-
-                content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
+            content = get_formatted_page_content_from_file_or_redis(
+                doc=merged_doc,
+                document_id=parent_document_id,
+                file_name=merged_file_name,
+                page=i,
+                page_content=str(page_content),
+                pages_to_append=pages_to_append,
+                document_pages=document_pages,
+                r=r,
+                check_redis=True,
+            )
 
             print(
                 f"#{parent_document_id} page {i} content:",
@@ -296,17 +291,18 @@ def split_request(
 
             if first_page or i == document_pages - 1:
                 sub_docs += 1
+                prev_split_page = (
+                    int(str(r.get(f"prev_split_page:{parent_document_id}"))),
+                )
+                r.set(f"prev_split_page:{parent_document_id}", i + offset)
                 print(f"\n#{parent_document_id} found first page: {i}")
 
                 try:
+                    # todo: use celery.
                     threading.Thread(
                         target=handle_first_page,
                         args=(
-                            int(
-                                cast(
-                                    str, r.get(f"prev_split_page:{parent_document_id}")
-                                )
-                            ),
+                            prev_split_page,
                             i if i == document_pages - 1 else i - 1,
                             offset,
                             token,
@@ -321,6 +317,7 @@ def split_request(
         except Exception as e:
             print(e)
 
+    merged_doc.close()
     notify_for_finished_splitting(token, parent_document_id)
     clear_keys_from_redis(parent_document_id, True)
 
@@ -359,36 +356,42 @@ def process_request(
 
         doc = fitz.open(file_path)
         document_pages = len(doc)
-        doc.close()
 
-        page_image = convert_pdf_page_to_image(file_name, 0)
-
+        page_image = convert_pdf_page_to_image(file_name, 0, doc)
         page_content = ""
+
         if page_image is not None:
             page_content = get_image_contents(page_image)
             r.set(f"page_content:{document_id}:{0}", page_content)
 
-        content = f"<curr_page>{page_content}</curr_page>"
+        content = get_formatted_page_content_from_file_or_redis(
+            doc=doc,
+            document_id=document_id,
+            file_name=file_name,
+            page=0,
+            page_content=page_content,
+            pages_to_append=pages_to_append,
+            document_pages=document_pages,
+            r=r,
+            check_redis=False,
+        )
 
-        for j in range(1, min(pages_to_append + 1, document_pages), 1):
-            next_page_image = convert_pdf_page_to_image(file_name, j)
-
-            next_page_content = ""
-            if next_page_image is not None:
-                next_page_content = get_image_contents(next_page_image)
-                r.set(f"page_content:{document_id}:{j}", next_page_content)
-
-            content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
+        doc.close()
     else:
-        page_content = str(r.get(f"page_content:{document_id}:{0}"))
-        content = f"<curr_page>{page_content}</curr_page>"
+        page_content = r.get(f"page_content:{document_id}:{0}")
 
-        for j in range(1, pages_to_append + 1, 1):
-            next_page_content = str(r.get(f"page_content:{document_id}:{j}"))
-            content += f"<next_page_{j}>{next_page_content}</next_page_{j}>"
+        content = get_formatted_page_content_from_file_or_redis(
+            document_id=document_id,
+            file_name=file_name,
+            page=0,
+            page_content=str(page_content),
+            pages_to_append=pages_to_append,
+            r=r,
+            check_redis=True,
+        )
 
     data = request_data_points(content)
-    print("data:", data)
+    print("\ndata:\n", data)
 
     notify_for_finished_processing(token, document_id, data)
     clear_keys_from_redis(document_id)

@@ -2,7 +2,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 
-from src.utils import max_length
+from src.utils import max_length, max_vocab_size
 
 
 class SplitterModel(nn.Module):
@@ -11,7 +11,7 @@ class SplitterModel(nn.Module):
         input_size: int = max_length,
         output_size: int = 1,
         hidden_size: int = 2048,
-        vocab_size: int = 60000,
+        vocab_size: int = max_vocab_size,
         pos_weight: float = 1.0,
     ) -> None:
         super().__init__()

@@ -1,15 +1,11 @@
-from io import BytesIO
-from PIL import Image
-
 import numpy as np
 import fitz  # PyMuPDF
 import random
 import csv
-import sys
 import os
 import re
 
-from src.document_processor.index import get_image_contents
+from src.document_processor.index import get_image_contents, convert_pdf_page_to_image
 from src.custom_types import (
     DatasetRow,
     EdgeCaseFiles,
@@ -27,12 +23,16 @@ from src.utils import (
     split_into_n_chunks,
 )
 
-process_name = sys.argv[1] if len(sys.argv) > 1 else "default"
-total_processes = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+# process_name = sys.argv[1] if len(sys.argv) > 1 else "default"
+# total_processes = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+process_name = 1
+total_processes = 1
 print(f"running process: p-{process_name}")
 
-training_data_csv = f"{TRAINING_DATA_CSV.replace('.csv', '')}-{process_name}.csv"
-testing_data_csv = f"{TESTING_DATA_CSV.replace('.csv', '')}-{process_name}.csv"
+# training_data_csv = f"{TRAINING_DATA_CSV.replace('.csv', '')}-{process_name}.csv"
+# testing_data_csv = f"{TESTING_DATA_CSV.replace('.csv', '')}-{process_name}.csv"
+training_data_csv = TRAINING_DATA_CSV
+testing_data_csv = TESTING_DATA_CSV
 
 training_write_header = not os.path.exists(training_data_csv)
 testing_write_header = not os.path.exists(testing_data_csv)
@@ -41,11 +41,7 @@ testing_write_header = not os.path.exists(testing_data_csv)
 def get_data_from_pdf(page: int, document_type: int, doc: fitz.open) -> DatasetRow:
     """page -> 1-based page numbering."""
 
-    pix = doc.load_page(page - 1).get_pixmap(  # type: ignore
-        matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY
-    )
-    img = Image.open(BytesIO(pix.tobytes("jpg")))
-
+    img = convert_pdf_page_to_image("", page - 1, doc)
     content = get_image_contents(np.array(img))
     row = (
         content,
@@ -138,7 +134,7 @@ if __name__ == "__main__":
             training = random.random() < TRAINING_PERCENTAGE
             pdf_path = os.path.join(PDF_DIR, file)
             print(
-                f"p-{process_name} processing {sum(list(type_counters)) + 1} / {len(pdf_list)} - {file}"
+                f"p-{process_name} processing {sum(type_counters) + 1} / {len(pdf_list)} - {file}"
             )
 
             try:

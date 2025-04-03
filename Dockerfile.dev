@@ -1,19 +1,48 @@
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3-pip \
-    python3.10-venv \
+    build-essential \
+    zlib1g-dev \
+    libncurses5-dev \
+    libgdbm-dev \
+    libnss3-dev \
+    libssl-dev \
+    libreadline-dev \
+    libffi-dev \
+    wget \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Set Python version
+ENV PYTHON_VERSION=3.13.2
+
+# Download and install Python
+RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
+    tar -xvf Python-${PYTHON_VERSION}.tgz && \
+    cd Python-${PYTHON_VERSION} && \
+    ./configure --enable-optimizations && \
+    make -j$(nproc) && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-${PYTHON_VERSION} Python-${PYTHON_VERSION}.tgz
+
+# Ensure pip is installed
+RUN python3.13 -m ensurepip --upgrade
+
+# Set working directory
 WORKDIR /wood-chipper-ai
 
+# Copy requirements and install Python packages
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN python3.13 -m pip install --upgrade pip && \
+    python3.13 -m pip install -r requirements.txt
 
+# Copy application code
 COPY . .
 
+# Expose the application port
 EXPOSE 8000
 
+# Command to run the application
 CMD ["gunicorn", "--workers=1", "--threads=1", "--bind=0.0.0.0:8000", "src.server:app"]

@@ -17,8 +17,6 @@ DONE: auto correct on ocr.
 DONE: dataset parallel processing,
 DONE: split pdf list & spawn multiple processes writing to different files processing different pdfs.
 
-todo: custom tokenizer.
-
 todo: expirement with embedding layer.
 
 GOATED!!
