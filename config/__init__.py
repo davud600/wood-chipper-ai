@@ -22,7 +22,7 @@ from .settings import (
     max_length,
     max_vocab_size,
     pages_to_append,
-    api_url,
+    API_URL,
     image_output_size,
     img_workers,
     ocr_workers,

@@ -4,11 +4,7 @@ from transformers import AutoTokenizer
 import numpy as np
 import torch
 
-from config import (
-    SPLITTER_MODEL_PATH,
-    TESTING_DATA_CSV,
-    max_length,
-)
+from config import SPLITTER_MODEL_PATH, TESTING_DATA_CSV, max_length, max_vocab_size
 
 from .model import SplitterModel
 from training.dataset import get_dataset
@@ -42,6 +38,10 @@ if __name__ == "__main__":
         )
 
         features = tokenized.input_ids.to("cuda")
+        assert (
+            torch.max(features) < max_vocab_size
+        ), "Token ID exceeds embedding vocab size!"
+
         labels = torch.stack(
             [
                 torch.tensor(1 if label == 1 else 0, dtype=torch.long)

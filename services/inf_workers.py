@@ -31,6 +31,7 @@ def get_consecutive_window(pages: list[int], size: int) -> list[int] | None:
 
 def start_inf_workers(
     document_context: DocumentContext,
+    pages: int,
     workers: int,
 ) -> list[multiprocessing.Process]:
     ctx = multiprocessing.get_context("spawn")
@@ -39,7 +40,7 @@ def start_inf_workers(
     for _ in range(workers):
         process = ctx.Process(
             target=inference_worker,
-            args=(document_context,),
+            args=(pages, document_context),
         )
 
         process.start()
@@ -49,6 +50,7 @@ def start_inf_workers(
 
 
 def inference_worker(
+    pages: int,
     document_context: DocumentContext,
 ):
     print("loading tokenizer...")
@@ -71,9 +73,9 @@ def inference_worker(
 
         if item is None:
             while len(batch) > 0:
-                print("clearing rest of batch in inf worker...")
+                # print("clearing rest of batch in inf worker...")
                 with get_lock("prev_split_page_lock"), get_lock("sub_doc_count_lock"):
-                    process_batch(tokenizer, model, batch, document_context)
+                    process_batch(tokenizer, model, batch, pages, document_context)
                     batch.pop(0)
 
             print(f"exitting (inf) content queue consumer thread...")
@@ -84,18 +86,18 @@ def inference_worker(
         if page not in batch:
             batch.append(page)
             batch.sort()
-            print(
-                f"[batch update] doc {document_context["document_id"]} batch: {sorted(batch)}"
-            )
+            # print(
+            #     f"[batch update] doc {document_context["document_id"]} batch: {sorted(batch)}"
+            # )
 
         window = get_consecutive_window(batch, batch_size)
 
         if window:
-            print(
-                f"(inf) content queue (document #{document_context["document_id"]}) consumer: {window}"
-            )
+            # print(
+            #     f"(inf) content queue (document #{document_context["document_id"]}) consumer: {window}"
+            # )
             with get_lock("prev_split_page_lock"), get_lock("sub_doc_count_lock"):
-                process_batch(tokenizer, model, batch, document_context)
+                process_batch(tokenizer, model, batch, pages, document_context)
 
                 batch.pop(0)
                 window = get_consecutive_window(batch, batch_size)
@@ -105,27 +107,33 @@ def process_batch(
     tokenizer: PreTrainedTokenizer,
     model: SplitterModel,
     batch: list[int],
+    pages: int,
     document_context: DocumentContext,
 ):
+    print(f"(inf document #{document_context["document_id"]}) consumer: {batch}")
+
     page = batch[0]
     content_batch = ""
 
     for i in range(len(batch)):
-        content = redis.get(
-            f"page_content:{document_context["document_id"]}:{page + i}"
-        )
+        raw = redis.get(f"page_content:{document_context["document_id"]}:{page + i}")
+        content = raw.decode("utf-8") if raw else ""  # type: ignore
 
         content_batch += (
-            f"<curr_content>{content}</curr_content>..."
+            f"<curr_page>{content}</curr_page>..."
             if i == 0
             else f"<next_page_{i}>{content}</next_page_{i}>..."
         )
 
-    # inference...
-    found_first_page, offset = is_first_page(tokenizer, model, content_batch)
-    if found_first_page:
-        print(f"page {page} qualifies as first page.")
+    # if detected new doc or last page.
+    found_first_page = False
+    if page < pages - 1:
+        # inference...
+        found_first_page, offset = is_first_page(tokenizer, model, content_batch)
+    else:
+        found_first_page, offset = True, 0
 
+    if found_first_page:
         prev_split_key = f"prev_split_page:{document_context['document_id']}"
         sub_doc_key = f"sub_doc_count:{document_context['document_id']}"
 
@@ -137,16 +145,23 @@ def process_batch(
         if sub_doc_bytes is None:
             raise ValueError(f"Missing Redis value for key: {sub_doc_key}")
 
-        prev_split_page = int.from_bytes(prev_split_bytes, byteorder="big")  # type: ignore
+        prev_split_page = int.from_bytes(prev_split_bytes, byteorder="big", signed=True)  # type: ignore
         sub_doc_count = int.from_bytes(sub_doc_bytes, byteorder="big")  # type: ignore
+        print(f"detected new document: {prev_split_page} - {page + offset}")
 
         # update prev_split_page & sub_doc_count.
-        redis.set(prev_split_key, bytes(page + offset))
-        redis.set(sub_doc_key, bytes(sub_doc_count + 1))
-
-        handle_first_page(
-            sub_doc_count, prev_split_page, page, offset, document_context
+        redis.set(
+            prev_split_key,
+            (page + offset).to_bytes(4, byteorder="big", signed=True),
         )
+        redis.set(
+            sub_doc_key,
+            (sub_doc_count + 1).to_bytes(4, byteorder="big", signed=False),
+        )
+
+        # handle_first_page(
+        #     sub_doc_count, prev_split_page, page, offset, document_context
+        # )
 
 
 def handle_first_page(
@@ -175,9 +190,10 @@ def handle_first_page(
 
     # update redis keys for doc contents to be used later on processing step.
     for i in range(page - prev_split_page):
-        page_content = redis.get(
-            f"page_content:{document_context["document_id"]}:{i + prev_split_page + offset}",
+        raw = redis.get(
+            f"page_content:{document_context["document_id"]}:{i + prev_split_page + offset}"
         )
+        page_content: str = raw.decode("utf-8") if raw else ""  # type: ignore
 
         print(
             f"page_content:{document_context["document_id"]}:{i + prev_split_page + offset} => {str(page_content)[:10]} => page_content:{document_id}:{i}"
@@ -185,7 +201,7 @@ def handle_first_page(
 
         redis.set(
             f"page_content:{document_id}:{i}",
-            str(page_content),
+            page_content,
         )
 
     sub_document_path = create_sub_document(

@@ -22,18 +22,18 @@ def process_pages_pipeline(
 ):
     redis.set(
         f"prev_split_page:{document_context['document_id']}",
-        -1,
+        (-1).to_bytes(4, byteorder="big", signed=True),
     )
     redis.set(
         f"sub_doc_count:{document_context['document_id']}",
-        0,
+        (0).to_bytes(4, byteorder="big", signed=False),
     )
 
-    inf_threads = start_inf_workers(document_context, max_inf_workers)
     ocr_processes = start_ocr_workers(document_context, max_ocr_workers, ocr_batch_size)
     img_processes = start_img_producers(
         document, pages, document_context, max_img_workers
     )
+    inf_processes = start_inf_workers(document_context, pages, max_inf_workers)
 
     for process in img_processes:
         process.join()
@@ -44,10 +44,10 @@ def process_pages_pipeline(
     for process in ocr_processes:
         process.join()
 
-    for _ in inf_threads:
+    for _ in inf_processes:
         shared_queue_push(document_context["document_id"], SharedQueues.Contents, None)
 
-    for thread in inf_threads:
-        thread.join()
+    for process in inf_processes:
+        process.join()
 
     return

@@ -25,27 +25,30 @@ def process_request(
 
         print(
             f"#{document_context["document_id"]} page {i} content:",
-            f"{page_content[:30]}...",
+            f"{page_content[:25]}...",
         )
         contents += [page_content]
 
+    document_context["file_name"] = f"{document_context["document_id"]}.pdf"
     print(f"{document_context["file_name"]} - {len(contents) > 0}")
 
     content_batch = ""
     if len(contents) > 0:
         for i in range(len(contents)):
-            content = redis.get(f"page_content:{document_context["document_id"]}:{i}")
+            raw = redis.get(f"page_content:{document_context["document_id"]}:{i}")
+            content = raw.decode("utf-8") if raw else ""  # type: ignore
+
             content_batch += (
                 f"<curr_content>{content}</curr_content>..."
                 if i == 0
                 else f"<next_page_{i}>{content}</next_page_{i}>..."
             )
     else:
-        file_path = download_s3_file(
-            str(document_context["signed_get_url"]), str(document_context["file_name"])
+        document_context["file_path"] = download_s3_file(
+            str(document_context["signed_get_url"]), document_context["file_name"]
         )
 
-        doc = fitz.open(file_path)
+        doc = fitz.open(document_context["file_path"])
         document_pages = len(doc)
 
         try:
@@ -56,13 +59,19 @@ def process_request(
                 max_inf_workers=0,
             )
 
-            data = request_data_points(content_batch)
-            print("\ndata:\n", data)
-
-            notify_for_finished_processing(
-                str(document_context["token"]),
-                int(document_context["document_id"]),
-                data,
-            )
         except Exception as e:
             print(e)
+
+    data = request_data_points(content_batch)
+    print("\ndata:\n", data)
+
+    notify_for_finished_processing(
+        str(document_context["token"]),
+        int(document_context["document_id"]),
+        data,
+    )
+
+    # delete redis keys.
+    keys_to_delete = redis.keys(f"*:{document_context["document_id"]}*")
+    if keys_to_delete:
+        redis.delete(*keys_to_delete)  # type: ignore

@@ -28,7 +28,7 @@ class SplitterModel(nn.Module):
     #     self._initialize_weights()
     def __init__(
         self,
-        embedding_dim: int = 256,
+        embedding_dim: int = 512,
         output_size: int = 1,
         hidden_size: int = 2048,
         vocab_size: int = max_vocab_size,

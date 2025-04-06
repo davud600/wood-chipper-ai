@@ -35,9 +35,9 @@ def get_dataset(path: str, mini_batch_size: int) -> tuple[Dataset, int, int]:
         type = row[2]
         file = row[3]
 
-        non_first_pages_prob = 1  # bigger -> more non-first pages.
-        if page != 1 and random.random() > non_first_pages_prob:
-            continue
+        # non_first_pages_prob = 1  # bigger -> more non-first pages.
+        # if page != 1 and random.random() > non_first_pages_prob:
+        #     continue
 
         content = f"<curr_page>{content}</curr_page>"
         for next in range(1, pages_to_append + 1):

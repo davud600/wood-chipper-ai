@@ -1,31 +1,31 @@
+from dotenv import load_dotenv
+
 import os
+
+load_dotenv()
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-OPENAI_API_KEY = (
-    "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"  # dude env pls...
-)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+API_URL = os.getenv("API_URL")
 
-
-api_url = "http://localhost:3001"
 max_length = 3064
 pages_to_append = 4
 max_vocab_size = 60000
-training_mini_batch_size = 16
-testing_mini_batch_size = 16
+training_mini_batch_size = 14
+testing_mini_batch_size = 14
 learning_rate = 0.000075
-weight_decay = 0.005
-patience = 10
+weight_decay = 0.0025
+patience = 15
 factor = 0.5
-epochs = 1
+epochs = 2
 log_steps = 10
 eval_steps = 50
-pymupdf_dpi = 300
 img_workers = 2
 ocr_workers = 1
 inf_workers = 1  # this can not be bigger than 1.
-ocr_batch_size = 1
-image_output_size = (720, 1280)
+ocr_batch_size = 2
+image_output_size = (900, 1000)  # upscale this when processing dataset.
 
 
 special_tokens = [
@@ -49,7 +49,6 @@ TESTING_DATA_CSV = os.path.join(project_root, "data", "dataset", "testing_data.c
 PDF_DIR = os.path.join(project_root, "data", "dataset", "pdfs")
 EDGE_CASES_FILE_PATH = os.path.join(project_root, "data", "dataset", "bad_files.txt")
 
-# pymupdf_dpi = 72
 PAGE_SIMILARITY_THRESHOLD = 0.7
 TRAINING_PERCENTAGE = 0.75
 DOCUMENT_TYPES = {

@@ -66,7 +66,7 @@ def split_endpoint():
 
     threading.Thread(
         target=split_request,
-        args=(document_context),
+        args=(document_context,),
     ).start()
 
     return jsonify({"message": "Splitting started"}), 202
@@ -113,7 +113,7 @@ def process_endpoint():
 
     threading.Thread(
         target=process_request,
-        args=(document_context),
+        args=(document_context,),
     ).start()
 
     return jsonify({"message": "Processing started"}), 202

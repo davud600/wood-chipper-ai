@@ -2,9 +2,10 @@ import threading
 import time
 import fitz
 
-from config import pages_to_append
+# from config import pages_to_append
 from lib.doc_tools.documents import convert_pdf_page_to_image, get_image_contents
-from utils import split_arr
+
+# from utils import split_arr
 from lib.redis import redis
 from core.pipeline import process_pages_pipeline
 
@@ -38,26 +39,27 @@ if __name__ == "__main__":
         "file_name": "merged_removed.pdf",
         "document_id": 1,
         "transaction_id": 1,
-        "token": "auth",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlzQWRtaW4iOnRydWUsIm5hbWUiOiJBZG1pbiIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwiaWF0IjoxNzQzOTQyNDg1LCJleHAiOjE3NDM5NzEyODV9.oXn4HzMeAtIZZu3POZI1_w0BGY1ZZ5HRUpofB2GCERA",
     }
     document_context1 = {
         "file_path": "/home/davud/wood-chipper-ai/merged_removed.pdf",
         "file_name": "merged_removed.pdf",
         "document_id": 2,
         "transaction_id": 1,
-        "token": "auth",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlzQWRtaW4iOnRydWUsIm5hbWUiOiJBZG1pbiIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwiaWF0IjoxNzQzOTQyNDg1LCJleHAiOjE3NDM5NzEyODV9.oXn4HzMeAtIZZu3POZI1_w0BGY1ZZ5HRUpofB2GCERA",
     }
     doc = fitz.open(document_context["file_path"])
     document_pages = len(doc)
+    # document_pages = 1
     # page_batches = split_arr(list(range(document_pages)), pages_to_append + 1)
 
     real_contents = []
-    for page in range(document_pages):
-        real_contents += [
-            get_image_contents(
-                convert_pdf_page_to_image(document_context["file_name"], page, doc)  # type: ignore
-            )
-        ]
+    # for page in range(document_pages):
+    #     real_contents += [
+    #         get_image_contents(
+    #             convert_pdf_page_to_image(document_context["file_name"], page, doc)  # type: ignore
+    #         )
+    #     ]
 
     print("\nstarting pipeline...")
     t3 = time.time()
@@ -82,12 +84,12 @@ if __name__ == "__main__":
             target=thread_target,
         )
         thread.start()
-        thread1 = threading.Thread(
-            target=thread_target1,
-        )
-        thread1.start()
+        # thread1 = threading.Thread(
+        #     target=thread_target1,
+        # )
+        # thread1.start()
         thread.join()
-        thread1.join()
+        # thread1.join()
     except Exception as e:
         print(e)
 
@@ -97,13 +99,15 @@ if __name__ == "__main__":
     for page in range(document_pages):
         raw = redis.get(f"page_content:{document_context['document_id']}:{page}")
         redis_content = raw.decode("utf-8") if raw else ""  # type: ignore
-        print(
-            f"page {page} redis content: {redis_content[:25]} | page {page} real content: {real_contents[page][:25]}"
-        )
+        print(f"page {page} redis content: {redis_content[:25]}")
+        # print(
+        #     f"page {page} redis content: {redis_content[:25]} | page {page} real content: {real_contents[page][:25]}"
+        # )
 
-    for page in range(document_pages):
-        raw = redis.get(f"page_content:{document_context1['document_id']}:{page}")
-        redis_content = raw.decode("utf-8") if raw else ""  # type: ignore
-        print(
-            f"page {page} redis content: {redis_content[:25]} | page {page} real content: {real_contents[page][:25]}"
-        )
+    # for page in range(document_pages):
+    #     raw = redis.get(f"page_content:{document_context1['document_id']}:{page}")
+    #     redis_content = raw.decode("utf-8") if raw else ""  # type: ignore
+    #     print(f"page {page} redis content: {redis_content[:25]}")
+    #     # print(
+    #     #     f"page {page} redis content: {redis_content[:25]} | page {page} real content: {real_contents[page][:25]}"
+    #     # )

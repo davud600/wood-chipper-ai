@@ -17,8 +17,12 @@ def is_first_page(
     """
 
     if "newdocumentseparator" in content.split("</curr_page>")[0]:
+        print("found newdocumentseparator")
         return True, 1
+    else:
+        return False, 0
 
+    # todo: sequence ids.
     tokenized = tokenizer(
         [content],
         return_tensors="pt",

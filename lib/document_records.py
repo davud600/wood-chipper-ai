@@ -3,13 +3,13 @@ import json
 
 from typing import Dict
 
-from config import api_url
+from config import API_URL
 
 
 def create_document_record(token: str, data: Dict[str, str | int]) -> tuple[int, str]:
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"{api_url}/api/common-document", headers=headers, json=data
+        f"{API_URL}/api/common-document", headers=headers, json=data
     )
 
     if not response.ok:
@@ -27,11 +27,11 @@ def update_document_record(
 ) -> tuple[int, str]:
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.put(
-        f"{api_url}/api/common-document/{id}", headers=headers, json=data
+        f"{API_URL}/api/common-document/{id}", headers=headers, json=data
     )
 
     if not response.ok:
-        raise Exception("Failed to create document record.")
+        raise Exception("Failed to update document record.")
 
     json_data = json.loads(response.text)
     document_record_id = json_data.get("commonDocument").get("id")
@@ -43,7 +43,7 @@ def update_document_record(
 def add_document_to_client_queue(token: str, document_id: int):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"{api_url}/api/common-document-processor/finished_uploading_sub_document?documentId={document_id}",
+        f"{API_URL}/api/common-document-processor/finished_uploading_sub_document?documentId={document_id}",
         headers=headers,
     )
 
@@ -55,7 +55,7 @@ def add_document_to_client_queue(token: str, document_id: int):
 def notify_for_finished_splitting(token: str, parent_document_id: int):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"{api_url}/api/common-document-processor/finished_splitting_document?parentDocumentId={parent_document_id}",
+        f"{API_URL}/api/common-document-processor/finished_splitting_document?parentDocumentId={parent_document_id}",
         headers=headers,
     )
 
@@ -67,7 +67,7 @@ def notify_for_finished_splitting(token: str, parent_document_id: int):
 def notify_for_finished_processing(token: str, document_id: int, data: Dict[str, str]):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
-        f"{api_url}/api/common-document-processor/finished_processing_document?documentId={document_id}",
+        f"{API_URL}/api/common-document-processor/finished_processing_document?documentId={document_id}",
         headers=headers,
         json=data,
     )

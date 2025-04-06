@@ -1,5 +1,4 @@
 import multiprocessing
-import numpy as np
 
 from typing import TYPE_CHECKING
 

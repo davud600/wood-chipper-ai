@@ -9,7 +9,7 @@ from PIL import Image
 from io import BytesIO
 
 from config import DOWNLOADS_DIR, SPLIT_DOCUMENTS_DIR, image_output_size
-from .images import apply_clahe, format_image_to_shape
+from .images import apply_clahe, format_image_to_shape, denoise, binarize
 
 
 reader = easyocr.Reader(["en"], gpu=True)
@@ -31,14 +31,14 @@ def convert_pdf_page_to_image(
     try:
         mat = fitz.Matrix(2, 2)
         pix = doc.load_page(page).get_pixmap(matrix=mat, colorspace=fitz.csGRAY)  # type: ignore
-        # print(page, pix)
 
         img = Image.open(BytesIO(pix.tobytes("jpg")))
         img = np.array(img)
 
-        img = format_image_to_shape(img, out_size[1], out_size[0])
+        img = format_image_to_shape(img, out_size[0], out_size[1])
         img = apply_clahe(img)
-        # img = denoise(img)
+        img = denoise(img)
+        # img = binarize(img)
 
         return img
     except Exception as e:

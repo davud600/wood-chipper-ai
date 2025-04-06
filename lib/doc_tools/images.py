@@ -4,6 +4,11 @@ import numpy as np
 import cv2
 
 
+def binarize(img: np.ndarray) -> np.ndarray:
+    _, binarized = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return binarized
+
+
 def denoise(img: np.ndarray) -> np.ndarray:
     return cv2.fastNlMeansDenoising(img, h=10)
 
@@ -14,17 +19,14 @@ def apply_clahe(img: np.ndarray) -> np.ndarray:
 
 
 def format_image_to_shape(
-    img: np.ndarray, target_h: int, target_w: int, white_thresh: int = 200
+    img: np.ndarray, target_w: int, target_h: int, white_thresh: int = 200
 ) -> np.ndarray:
     h, w = img.shape[:2]
 
-    # Step 1: Trim mostly white rows/columns
-    # Convert to grayscale if needed
-    gray = img if len(img.shape) == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    cv2.imwrite("/home/davud/wood-chipper-ai/before.png", img)
 
-    # Create masks where content is present (darker than threshold)
-    row_mask = np.any(gray < white_thresh, axis=1)
-    col_mask = np.any(gray < white_thresh, axis=0)
+    row_mask = np.any(img < white_thresh, axis=1)
+    col_mask = np.any(img < white_thresh, axis=0)
 
     # Crop blank areas
     img = img[row_mask, :]
@@ -32,19 +34,13 @@ def format_image_to_shape(
 
     h, w = img.shape[:2]
 
-    # Step 2: If still too big, center-crop symmetrically
+    # Step 2: If still too big, crop symmetrically from bottom / right.
     if h > target_h:
-        extra = h - target_h
-        top_crop = extra // 2
-        bottom_crop = extra - top_crop
-        img = img[top_crop : h - bottom_crop, :]
+        img = img[:target_h, :]
         h = target_h
 
     if w > target_w:
-        extra = w - target_w
-        left_crop = extra // 2
-        right_crop = extra - left_crop
-        img = img[:, left_crop : w - right_crop]
+        img = img[:, :target_w]
         w = target_w
 
     # Step 3: Pad to target size (centered)
@@ -56,6 +52,8 @@ def format_image_to_shape(
     padded = cv2.copyMakeBorder(
         img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=255  # white
     )
+
+    cv2.imwrite("/home/davud/wood-chipper-ai/after.png", padded)
 
     return padded
 
