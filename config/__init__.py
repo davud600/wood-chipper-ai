@@ -41,4 +41,6 @@ from .settings import (
     eval_steps,
     training_mini_batch_size,
     testing_mini_batch_size,
+    IMAGES_DIR,
+    prev_pages_to_append,
 )

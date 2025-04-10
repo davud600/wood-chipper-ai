@@ -1,2 +1,2 @@
-from .model import SplitterModel
+from .model import FusionModel
 from .dataset import get_dataset
