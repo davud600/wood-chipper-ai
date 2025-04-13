@@ -27,6 +27,7 @@ img_workers = 1
 ocr_workers = 2
 inf_workers = 1  # this can not be bigger than 1.
 ocr_batch_size = 2
+pages_to_skip_after_finding_first_page = 2
 # image_output_size = (1000, 800)  # upscale this when processing dataset.
 # image_output_size = (1024, 1024)
 image_output_size = (512, 512)
@@ -54,7 +55,10 @@ DELETE_REDIS_KEYS_TIMEOUT = 60
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CORPUS_FILE = os.path.join(project_root, "data", "dataset", "corpus.txt")
 TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
-SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
+# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
+SPLITTER_MODEL_PATH = os.path.join(
+    project_root, "data", "models", "splitter_all_types.pth"
+)
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "data", "split_documents")
 IMAGES_DIR = os.path.join(project_root, "data", "dataset", "images")

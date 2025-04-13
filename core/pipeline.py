@@ -57,7 +57,7 @@ def process_pages_pipeline(
         (0).to_bytes(4, byteorder="big", signed=False),
     )
 
-    inf_processes = start_inf_workers(document_context, pages, max_inf_workers)
+    inf_processes = start_inf_workers(document_context, max_inf_workers)
     ocr_processes = start_ocr_workers(document_context, max_ocr_workers, ocr_batch_size)
     img_processes = start_img_producers(pages, document_context, max_img_workers)
 

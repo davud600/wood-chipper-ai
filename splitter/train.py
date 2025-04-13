@@ -42,6 +42,9 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
     model = FusionModel(image_size=image_output_size).to(device)
+    # model.load_state_dict(
+    #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+    # )
 
     print("[TRAINING]")
     train_dataset = DocumentDataset(

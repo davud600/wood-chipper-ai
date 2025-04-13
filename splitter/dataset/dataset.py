@@ -80,7 +80,7 @@ class DocumentDataset(Dataset):
             img_path = os.path.join(self.image_dir, img_filename)
             # print(f"page {page_num} - {file_id}")
 
-            if doc_type == 0 or doc_type > 6:
+            if doc_type == 0:
                 continue
 
             if os.path.exists(img_path):
