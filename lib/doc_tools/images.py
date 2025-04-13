@@ -19,11 +19,11 @@ def apply_clahe(img: np.ndarray) -> np.ndarray:
 
 
 def format_image_to_shape(
-    img: np.ndarray, target_w: int, target_h: int, white_thresh: int = 200
+    img: np.ndarray, target_w: int, target_h: int, white_thresh: int = 210
 ) -> np.ndarray:
     h, w = img.shape[:2]
 
-    cv2.imwrite("/home/davud/wood-chipper-ai/before.png", img)
+    # cv2.imwrite("/home/davud/wood-chipper-ai/before.png", img)
 
     row_mask = np.any(img < white_thresh, axis=1)
     col_mask = np.any(img < white_thresh, axis=0)
@@ -53,7 +53,7 @@ def format_image_to_shape(
         img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=255  # white
     )
 
-    cv2.imwrite("/home/davud/wood-chipper-ai/after.png", padded)
+    # cv2.imwrite(f"/home/davud/wood-chipper-ai/after-{img[20][100]}.png", padded)
 
     return padded
 

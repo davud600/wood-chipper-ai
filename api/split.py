@@ -1,6 +1,6 @@
 import fitz
 
-from type_defs import DocumentContext
+from type_defs.shared import DocumentContext
 
 from core import process_pages_pipeline
 from lib.redis import redis
@@ -12,8 +12,21 @@ def split_request(
     document_context: DocumentContext,
 ):
     """
-    The actual worker function that handles the request data.
-    (Runs in a separate thread from the main Flask thread.)
+    Splits the document into individual pages and initiates processing.
+
+    Downloads the source PDF file from an S3 URL, counts the number of pages,
+    and invokes the `process_pages_pipeline`. Upon completion, it notifies
+    the document record service and clears relevant Redis cache entries.
+
+    Parameters
+    ----------
+    document_context : DocumentContext
+        Dictionary containing metadata about the document, including
+        token, transaction ID, document ID, and signed S3 URL.
+
+    Returns
+    -------
+    None
     """
 
     print(f"\n#{document_context["document_id"]} downloading source file...")
@@ -24,18 +37,17 @@ def split_request(
 
     merged_doc = fitz.open(document_context["file_path"])
     document_pages = len(merged_doc)
+    merged_doc.close()
     print(f"{document_context["file_path"]} pages: {document_pages}")
 
     try:
         process_pages_pipeline(
-            document=merged_doc,
             pages=document_pages,
             document_context=document_context,
         )
     except Exception as e:
         print(e)
 
-    merged_doc.close()
     notify_for_finished_splitting(
         str(document_context["token"]), int(document_context["document_id"])
     )

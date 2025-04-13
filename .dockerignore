@@ -1,6 +1,8 @@
 __pycache__/
+debug_batches/
 .venv/
-dataset/
+.git/
+data/dataset/pdfs
 .git/
 *.pyc
 *.pyo
@@ -8,5 +10,7 @@ dataset/
 *.db
 *.sqlite3
 *.log
-*.csv
+**/.csv
 *.pdf
+**/__pycache__/
+**/*.pdf

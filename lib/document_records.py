@@ -3,7 +3,7 @@ import json
 
 from typing import Dict
 
-from config import API_URL
+from config.settings import API_URL
 
 
 def create_document_record(token: str, data: Dict[str, str | int]) -> tuple[int, str]:

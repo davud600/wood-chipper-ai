@@ -3,7 +3,7 @@ from redis.lock import Lock
 
 import redis as r
 
-from config import REDIS_HOST, REDIS_PORT
+from config.settings import REDIS_HOST, REDIS_PORT
 
 redis: Redis = r.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
 

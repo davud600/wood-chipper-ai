@@ -8,8 +8,9 @@ import os
 from PIL import Image
 from io import BytesIO
 
-from config import DOWNLOADS_DIR, SPLIT_DOCUMENTS_DIR, image_output_size
-from .images import apply_clahe, format_image_to_shape, denoise, binarize
+from config.settings import DOWNLOADS_DIR, SPLIT_DOCUMENTS_DIR, image_output_size
+from utils.general import clean_text
+from .images import apply_clahe, format_image_to_shape, denoise
 
 
 reader = easyocr.Reader(["en"], gpu=True)
@@ -19,6 +20,7 @@ def convert_pdf_page_to_image(
     file_name: str,
     page: int,
     doc: fitz.open,
+    keep_original_size=False,
     out_size: tuple[int, int] = image_output_size,
 ) -> np.ndarray | None:
     """
@@ -35,7 +37,9 @@ def convert_pdf_page_to_image(
         img = Image.open(BytesIO(pix.tobytes("jpg")))
         img = np.array(img)
 
-        img = format_image_to_shape(img, out_size[0], out_size[1])
+        if not keep_original_size:
+            img = format_image_to_shape(img, out_size[0], out_size[1])
+
         img = apply_clahe(img)
         img = denoise(img)
         # img = binarize(img)
@@ -51,22 +55,29 @@ def get_image_batch_contents(images: list[np.ndarray]) -> list[str]:
     """
 
     try:
-        # t0 = time.time()
+        # Prepare a list of non-empty images for OCR processing.
+        non_empty_images = []
+        for img in images:
+            if img.size != 0:
+                non_empty_images.append(img)
+
+        # Run OCR only on non-empty images.
         results = reader.readtext_batched(
-            images, detail=0, paragraph=False, decoder="greedy"
+            non_empty_images, detail=0, paragraph=False, decoder="greedy"
         )
 
-        # t1 = time.time()
-        # print(f"batch ocr ({len(images)}): {t1 - t0}")
-
         contents = []
-        for content in results:
-            content = " ".join(content)
-            contents += [content]
-
-        # contents = [" ".join(content) for content in results]
-        # contents = [clean_text(content) for content in contents]
-        contents = [content.replace("\n", " ") for content in contents]
+        non_empty_index = 0  # Index for the results list.
+        for img in images:
+            if img.size == 0:
+                # If image is empty, append an empty string.
+                contents.append("")
+            else:
+                # Process OCR result: join tokens and clean newline characters.
+                text = " ".join(results[non_empty_index])
+                text = text.replace("\n", " ")
+                contents.append(text)
+                non_empty_index += 1
 
         return contents
     except Exception as e:
@@ -88,7 +99,7 @@ def get_image_contents(image: np.ndarray) -> str:
         t1 = time.time()
         print(f"ocr: {t1 - t0}")
         content = " ".join(results)
-        # content = clean_text(content)
+        content = clean_text(content)
         content = content.replace("\n", " ")
 
         return content

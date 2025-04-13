@@ -21,15 +21,21 @@ manager = multiprocessing.Manager()
 @app.route("/split", methods=["POST"])
 def split_endpoint():
     """
-    Receives a POST request with "transaction_id", "document_id" and "signed_get_url" in body.
+    Handles document splitting requests.
 
-    token -> client auth token.
-    transactino_id -> id of transaction associated with the document.
-    document_id -> id of document record in database.
-    signed_get_url -> aws s3 bucket signed url for downloading the file.
+    This endpoint receives a JSON payload containing a client token,
+    transaction ID, document ID, and a signed AWS S3 URL. The request
+    is validated and then processed in a separate thread.
 
-    Offloads the heavy lifting to a thread in ThreadPoolExecutor.
-    Responds with 200 status code.
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    flask.Response
+        A JSON response with status code 202 if the request is accepted,
+        or 400 if any required fields are missing or invalid.
     """
 
     data = request.get_json() or {}
@@ -75,14 +81,21 @@ def split_endpoint():
 @app.route("/process", methods=["POST"])
 def process_endpoint():
     """
-    Receives a POST request with "transaction_id", "document_id" and "signed_get_url" in body.
+    Handles document processing requests.
 
-    token -> client auth token.
-    document_id -> id of document record in database.
-    signed_get_url -> aws s3 bucket signed url for downloading the file.
+    This endpoint receives a JSON payload containing a client token,
+    document ID, and a signed AWS S3 URL. The request is validated
+    and then processed in a separate thread.
 
-    Offloads the heavy lifting to a thread in ThreadPoolExecutor.
-    Responds with 200 status code.
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    flask.Response
+        A JSON response with status code 202 if the request is accepted,
+        or 400 if any required fields are missing or invalid.
     """
 
     data = request.get_json() or {}

@@ -1,10 +1,5 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from fitz import open as Document
-
-from config import img_workers, ocr_workers, inf_workers, ocr_batch_size
-from type_defs import DocumentContext, SharedQueues
+from config.settings import img_workers, ocr_workers, inf_workers, ocr_batch_size
+from type_defs.shared import DocumentContext, SharedQueues
 
 from lib.redis import redis
 from lib.redis.queues import shared_queue_push
@@ -12,7 +7,6 @@ from services import start_img_producers, start_ocr_workers, start_inf_workers
 
 
 def process_pages_pipeline(
-    document: "Document",
     pages: int,
     document_context: DocumentContext,
     max_img_workers: int = img_workers,
@@ -20,6 +14,40 @@ def process_pages_pipeline(
     max_inf_workers: int = inf_workers,
     ocr_batch_size: int = ocr_batch_size,
 ):
+    """
+    Orchestrates the document processing pipeline for a given number of pages.
+
+    Initializes Redis tracking keys and starts separate multiprocessing workers
+    for image generation, OCR, and inference tasks. Ensures that the workers are
+    joined in order and that signals are sent via shared queues to indicate
+    the end of work for downstream stages.
+
+    Parameters
+    ----------
+    pages : int
+        The total number of pages in the document.
+
+    document_context : DocumentContext
+        A dictionary of contextual information for the document being processed,
+        including token, document ID, and paths.
+
+    max_img_workers : int, optional
+        Maximum number of concurrent image producer workers to launch.
+
+    max_ocr_workers : int, optional
+        Maximum number of concurrent OCR workers to launch.
+
+    max_inf_workers : int, optional
+        Maximum number of concurrent inference workers to launch.
+
+    ocr_batch_size : int, optional
+        Number of images processed per batch during OCR.
+
+    Returns
+    -------
+    None
+    """
+
     redis.set(
         f"prev_split_page:{document_context['document_id']}",
         (-1).to_bytes(4, byteorder="big", signed=True),
@@ -29,11 +57,9 @@ def process_pages_pipeline(
         (0).to_bytes(4, byteorder="big", signed=False),
     )
 
-    ocr_processes = start_ocr_workers(document_context, max_ocr_workers, ocr_batch_size)
-    img_processes = start_img_producers(
-        document, pages, document_context, max_img_workers
-    )
     inf_processes = start_inf_workers(document_context, pages, max_inf_workers)
+    ocr_processes = start_ocr_workers(document_context, max_ocr_workers, ocr_batch_size)
+    img_processes = start_img_producers(pages, document_context, max_img_workers)
 
     for process in img_processes:
         process.join()

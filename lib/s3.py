@@ -1,7 +1,7 @@
 import requests
 import os
 
-from config import DOWNLOADS_DIR
+from config.settings import DOWNLOADS_DIR
 
 
 def download_s3_file(signed_get_url: str, output_filename: str) -> str:

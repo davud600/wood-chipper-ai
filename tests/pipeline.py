@@ -3,7 +3,7 @@ import time
 import fitz
 
 # from config import pages_to_append
-from lib.doc_tools.documents import convert_pdf_page_to_image, get_image_contents
+# from lib.doc_tools.documents import convert_pdf_page_to_image, get_image_contents
 
 # from utils import split_arr
 from lib.redis import redis
@@ -68,17 +68,15 @@ if __name__ == "__main__":
 
         def thread_target():
             process_pages_pipeline(
-                document=doc,
                 pages=document_pages,
                 document_context=document_context,
             )
 
-        def thread_target1():
-            process_pages_pipeline(
-                document=doc,
-                pages=document_pages,
-                document_context=document_context1,
-            )
+        # def thread_target1():
+        #     process_pages_pipeline(
+        #         pages=document_pages,
+        #         document_context=document_context1,
+        #     )
 
         thread = threading.Thread(
             target=thread_target,
@@ -99,7 +97,7 @@ if __name__ == "__main__":
     for page in range(document_pages):
         raw = redis.get(f"page_content:{document_context['document_id']}:{page}")
         redis_content = raw.decode("utf-8") if raw else ""  # type: ignore
-        print(f"page {page} redis content: {redis_content[:25]}")
+        print(f"page {page} redis content: {redis_content[:100]}")
         # print(
         #     f"page {page} redis content: {redis_content[:25]} | page {page} real content: {real_contents[page][:25]}"
         # )

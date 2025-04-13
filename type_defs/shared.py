@@ -1,6 +1,6 @@
 import numpy as np
 
-from typing import Dict, TypedDict, Tuple
+from typing import Dict, Tuple
 
 from enum import Enum
 
@@ -24,18 +24,3 @@ ImageQueueItem = Tuple[int, np.ndarray] | None
 
 
 type DatasetRow = tuple[str, int, int, str]
-
-
-class EdgeCaseFile(TypedDict):
-    case: str
-
-
-type EdgeCaseFiles = Dict[str, EdgeCaseFile]
-
-
-class EdgeCases(Enum):
-    START = r"start\((\d+)\)"
-    ALIAS = r"alias\((\d+)\)"
-    DELETE = "delete"
-    AGREEMENT = "agreement"
-    SUBLEASE = "sublease"

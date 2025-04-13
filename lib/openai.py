@@ -1,9 +1,10 @@
-from typing import Dict, Any
-
-from config import DOCUMENT_TYPES, OPENAI_API_KEY
-
 import openai
 import json
+
+from typing import Dict, Any
+
+from config.settings import DOCUMENT_TYPES, OPENAI_API_KEY
+
 
 openai.api_key = OPENAI_API_KEY
 

@@ -2,24 +2,36 @@ import numpy as np
 import msgpack
 import time
 
-from type_defs import SharedQueues
+from type_defs.shared import SharedQueues
 
 from .config import redis
 
-max_image_queue_size = 4
+max_image_queue_size = 8
 
 
-def encode_content_queue_item(page: int) -> bytes:
-    return msgpack.packb({"page": page}, use_bin_type=True)  # type: ignore
+def encode_content_queue_item(page: int, image: np.ndarray) -> bytes:
+    return msgpack.packb(  # type: ignore
+        {
+            "page": page,
+            "shape": image.shape,
+            "dtype": str(image.dtype),
+            "data": image.tobytes(),
+        },
+        use_bin_type=True,
+    )
 
 
-def decode_content_queue_item(payload: bytes) -> int:
+def decode_content_queue_item(payload: bytes) -> tuple[int, np.ndarray]:
     unpacked = msgpack.unpackb(payload, raw=False)
 
-    return unpacked["page"]  # type: ignore
+    shape = tuple(unpacked["shape"])
+    dtype = np.dtype(unpacked["dtype"])
+    image = np.frombuffer(unpacked["data"], dtype=dtype).reshape(shape)
+
+    return unpacked["page"], image
 
 
-def encode_image_queue_item(image: np.ndarray, page: int) -> bytes:
+def encode_image_queue_item(page: int, image: np.ndarray) -> bytes:
     return msgpack.packb(  # type: ignore
         {
             "page": page,

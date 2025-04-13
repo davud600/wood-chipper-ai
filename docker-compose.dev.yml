@@ -7,10 +7,17 @@ services:
       - "8000:8000"
     volumes:
       - .:/wood-chipper-ai
-      - /wood-chipper-ai/.venv
     depends_on:
       - redis
-    command: gunicorn -w 1 -b 0.0.0.0:8000 src.server:app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    command: gunicorn -w 1 -b 0.0.0.0:8000 server:app
 
   redis:
     image: redis:latest

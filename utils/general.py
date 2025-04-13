@@ -8,6 +8,20 @@ from config.settings import DOCUMENT_TYPES
 spell = Speller(lang="en")
 
 
+def get_formatted_content_batch(curr_page_idx: int, contents: list[str]) -> str:
+    content_batch = ""
+
+    for i, content in enumerate(contents):
+        if curr_page_idx == i:
+            content_batch += f"<curr_page>{content}</curr_page>"
+        elif i < curr_page_idx:
+            content_batch += f"<prev_page_{curr_page_idx - i}>{content}</prev_page_{curr_page_idx - i}>"
+        elif i > curr_page_idx:
+            content_batch += f"<next_page_{i - curr_page_idx}>{content}</next_page_{i - curr_page_idx}>"
+
+    return content_batch
+
+
 def get_document_type(file_name: str) -> int:
     file_name = file_name.replace("-", " ").replace("_", " ").lower()
 
@@ -45,13 +59,50 @@ def get_document_type(file_name: str) -> int:
     return DOCUMENT_TYPES["unknown"]
 
 
+def filter_junky_lines(text: str) -> str:
+    lines = text.splitlines()
+    clean_lines = []
+    for line in lines:
+        tokens = line.split()
+        if (
+            len(tokens) <= 6
+            and sum(1 for t in tokens if re.fullmatch(r"[A-Z0-9]{2,}", t))
+            >= len(tokens) - 1
+            and not any(c.islower() for c in line)
+        ):
+            continue  # Junk — skip
+        clean_lines.append(line)
+    return "\n".join(clean_lines)
+
+
 def clean_text(text: str) -> str:
+    # Normalize unicode (e.g., smart quotes → straight quotes)
+    text = re.sub(r"[“”]", '"', text)
+    text = re.sub(r"[‘’]", "'", text)
+
     # Remove non-ASCII characters
     text = re.sub(r"[^\x00-\x7F]+", " ", text)
-    # Replace multiple spaces with a single space
+
+    # Remove overly long garbage tokens (e.g., "_____", "======", "|||||", etc.)
+    text = re.sub(r"([=\-_\|]{3,})", " ", text)
+
+    # Remove isolated symbols or sequences of non-word characters
+    text = re.sub(r"\b[^a-zA-Z0-9\s]{2,}\b", " ", text)
+
+    # Remove bracketed noise (e.g., [cid:image001.jpg@...], [Page 1])
+    text = re.sub(r"\[[^\]]*\]", " ", text)
+
+    # Remove sequences of digits with no alphabet around (e.g., timestamps, hex, table IDs)
+    text = re.sub(r"\b\d{4,}\b", " ", text)
+
+    text = filter_junky_lines(text)
+
+    # Collapse multiple spaces, line breaks, tabs
     text = re.sub(r"\s+", " ", text).strip()
-    # Remove extraneous punctuation
+
+    # Final cleaning: only keep useful punctuation
     text = re.sub(r'[^a-zA-Z0-9.,;:\'"\-\s]', "", text)
+
     return text
 
 
@@ -89,3 +140,36 @@ def split_into_n_chunks(lst, n):
 
 def split_arr(arr, size):
     return [arr[i : i + size] for i in range(0, len(arr), size)]
+
+
+def parse_formatted_content_batch_to_sections(
+    content_batch: str,
+) -> tuple[str, str, str]:
+    pattern = re.compile(r"<(prev_page_(\d+)|curr_page|next_page_(\d+))>(.*?)</\1>")
+
+    prev_pages = {}
+    next_pages = {}
+    curr_content = ""
+
+    for match in pattern.finditer(content_batch):
+        tag = match.group(1)
+        prev_offset = match.group(2)
+        next_offset = match.group(3)
+        content = match.group(4)
+
+        if tag == "curr_page":
+            curr_content = content
+        elif prev_offset is not None:
+            idx = int(prev_offset)
+            prev_pages[idx] = content
+        elif next_offset is not None:
+            idx = int(next_offset)
+            next_pages[idx] = content
+
+    # Sort by offset (e.g. prev_page_3, prev_page_2, prev_page_1 → ordered as 3, 2, 1 → combine in that order)
+    prev_combined = "".join(
+        prev_pages[i] for i in sorted(prev_pages.keys(), reverse=True)
+    )
+    next_combined = "".join(next_pages[i] for i in sorted(next_pages.keys()))
+
+    return prev_combined, curr_content, next_combined

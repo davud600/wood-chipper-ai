@@ -14,26 +14,36 @@ max_length = 512
 prev_pages_to_append = 1
 pages_to_append = 1
 max_vocab_size = 60000
-training_mini_batch_size = 42
-testing_mini_batch_size = 42
+training_mini_batch_size = 18
+testing_mini_batch_size = 18
 learning_rate = 0.00005
-weight_decay = 0.0001
+weight_decay = 0.00025
 patience = 15
 factor = 0.5
 epochs = 5
 log_steps = 10
-eval_steps = 50
-img_workers = 2
-ocr_workers = 1
+eval_steps = 100
+img_workers = 1
+ocr_workers = 2
 inf_workers = 1  # this can not be bigger than 1.
 ocr_batch_size = 2
-image_output_size = (900, 1000)  # upscale this when processing dataset.
+# image_output_size = (1000, 800)  # upscale this when processing dataset.
+image_output_size = (1024, 1024)
 
+
+max_chars = {
+    "curr_page": 1024,
+    "prev_page": 512,
+    "next_page": 512,
+}
 
 special_tokens = [
     "<curr_page>",
     "</curr_page>",
 ]
+
+for i in range(1, pages_to_append + 1, 1):
+    special_tokens += [f"<prev_page_{i}>", f"</prev_page_{i}>"]
 
 for i in range(1, pages_to_append + 1, 1):
     special_tokens += [f"<next_page_{i}>", f"</next_page_{i}>"]
@@ -43,7 +53,7 @@ DELETE_REDIS_KEYS_TIMEOUT = 60
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CORPUS_FILE = os.path.join(project_root, "data", "dataset", "corpus.txt")
 TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
-SPLITTER_MODEL_PATH = os.path.join(project_root, "models", "splitter.pth")
+SPLITTER_MODEL_PATH = os.path.join(project_root, "models", "data", "splitter.pth")
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "data", "split_documents")
 IMAGES_DIR = os.path.join(project_root, "data", "dataset", "images")
@@ -51,6 +61,23 @@ TRAINING_DATA_CSV = os.path.join(project_root, "data", "dataset", "training.csv"
 TESTING_DATA_CSV = os.path.join(project_root, "data", "dataset", "testing.csv")
 PDF_DIR = os.path.join(project_root, "data", "dataset", "pdfs")
 EDGE_CASES_FILE_PATH = os.path.join(project_root, "data", "dataset", "bad_files.txt")
+
+
+def get_cnn_data_csv(output_size: tuple[int, int]):
+    return os.path.join(
+        project_root,
+        "data",
+        "dataset",
+        "images",
+        f"{output_size[0]}x{output_size[1]}.csv",
+    )
+
+
+def get_cnn_image_dir(output_size: tuple[int, int]):
+    return os.path.join(
+        project_root, "data", "dataset", "images", f"{output_size[0]}x{output_size[1]}"
+    )
+
 
 PAGE_SIMILARITY_THRESHOLD = 0.7
 TRAINING_PERCENTAGE = 0.75

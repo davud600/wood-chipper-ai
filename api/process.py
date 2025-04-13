@@ -1,7 +1,7 @@
 import fitz
 
-from config import pages_to_append
-from type_defs import DocumentContext
+from config.settings import pages_to_append
+from type_defs.shared import DocumentContext
 
 from core import process_pages_pipeline
 from lib.redis import redis
@@ -14,8 +14,21 @@ def process_request(
     document_context: DocumentContext,
 ):
     """
-    The actual worker function that handles the request data.
-    (Runs in a separate thread from the main Flask thread.)
+    Processes the document content and sends data points to downstream services.
+
+    If Redis has cached page content, this is aggregated and sent to an
+    OpenAI data point extraction pipeline. If not, the file is downloaded,
+    and processing is done via `process_pages_pipeline`.
+
+    Parameters
+    ----------
+    document_context : DocumentContext
+        Dictionary containing metadata about the document, including
+        token, document ID, and signed S3 URL.
+
+    Returns
+    -------
+    None
     """
 
     contents: list[str] = []
@@ -34,10 +47,7 @@ def process_request(
 
     content_batch = ""
     if len(contents) > 0:
-        for i in range(len(contents)):
-            raw = redis.get(f"page_content:{document_context["document_id"]}:{i}")
-            content = raw.decode("utf-8") if raw else ""  # type: ignore
-
+        for i, content in enumerate(contents):
             content_batch += (
                 f"<curr_content>{content}</curr_content>..."
                 if i == 0
@@ -50,10 +60,10 @@ def process_request(
 
         doc = fitz.open(document_context["file_path"])
         document_pages = len(doc)
+        doc.close()
 
         try:
             process_pages_pipeline(
-                document=doc,
                 pages=min(pages_to_append + 1, document_pages),
                 document_context=document_context,
                 max_inf_workers=0,
@@ -63,8 +73,7 @@ def process_request(
             print(e)
 
     data = request_data_points(content_batch)
-    print("\ndata:\n", data)
-
+    # data = {}
     notify_for_finished_processing(
         str(document_context["token"]),
         int(document_context["document_id"]),

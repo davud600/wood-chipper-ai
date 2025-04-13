@@ -1,48 +1,43 @@
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    zlib1g-dev \
-    libncurses5-dev \
-    libgdbm-dev \
-    libnss3-dev \
-    libssl-dev \
-    libreadline-dev \
-    libffi-dev \
-    wget \
-    git \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+# Install base dependencies
+RUN apt update && apt install -y \
+    git build-essential zlib1g-dev libncurses5-dev \
+    libgdbm-dev libnss3-dev libssl-dev libreadline-dev \
+    libffi-dev wget curl libbz2-dev liblzma-dev \
+    redis-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python version
-ENV PYTHON_VERSION=3.13.2
-
-# Download and install Python
-RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
-    tar -xvf Python-${PYTHON_VERSION}.tgz && \
-    cd Python-${PYTHON_VERSION} && \
+# Install Python 3.13 from source
+RUN cd /opt && \
+    wget https://www.python.org/ftp/python/3.13.0/Python-3.13.0.tgz && \
+    tar -xf Python-3.13.0.tgz && \
+    cd Python-3.13.0 && \
     ./configure --enable-optimizations && \
     make -j$(nproc) && \
     make altinstall && \
-    cd .. && \
-    rm -rf Python-${PYTHON_VERSION} Python-${PYTHON_VERSION}.tgz
+    ln -s /usr/local/bin/python3.13 /usr/local/bin/python && \
+    ln -s /usr/local/bin/pip3.13 /usr/local/bin/pip
 
-# Ensure pip is installed
-RUN python3.13 -m ensurepip --upgrade
+# Show versions just for sanity check
+RUN python --version && pip --version
 
-# Set working directory
 WORKDIR /wood-chipper-ai
 
-# Copy requirements and install Python packages
+# Copy only requirements first to leverage Docker cache
 COPY requirements.txt .
-RUN python3.13 -m pip install --upgrade pip && \
-    python3.13 -m pip install -r requirements.txt
 
-# Copy application code
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
 COPY . .
 
-# Expose the application port
 EXPOSE 8000
 
-# Command to run the application
 CMD ["gunicorn", "--workers=1", "--threads=1", "--bind=0.0.0.0:8000", "src.server:app"]
+
