@@ -38,22 +38,24 @@ class FusionModel(nn.Module):
         image_size: tuple[int, int] = (256, 256),
         cnn_model: nn.Module | None = None,
         reader_model: nn.Module | None = None,
-        dropout: float = 0.3,
+        dropout: float = 0.1,
     ):
         super(FusionModel, self).__init__()
         self.reader_model = reader_model or ReaderModel()
         self.cnn_model = cnn_model or CNNModel(image_size=image_size)
 
-        # 🔥 Spicy MLP: 2 inputs → 16 hidden → 1 output
+        # 🔥 Spicy MLP: 3 inputs → 16 hidden → 1 output
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(2, 16),
+            nn.Linear(3, 16),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(16, 1),
         )
 
     ## FUSED ###
-    def forward(self, input_ids, attention_mask, cnn_inputs, return_all_logits=False):
+    def forward(
+        self, input_ids, attention_mask, cnn_inputs, distance, return_all_logits=False
+    ):
         # LLM logits
         llm_logits = self.reader_model(
             input_ids=input_ids, attention_mask=attention_mask
@@ -65,8 +67,12 @@ class FusionModel(nn.Module):
         #     f"[Fusion] LLM: {llm_logits.detach().cpu().numpy()}, CNN: {cnn_logits.detach().cpu().numpy()}"
         # )
 
+        distance = distance.squeeze(-1)
+        if self.training:
+            distance += torch.randn_like(distance) * 0.05
+
         # Stack logits → (B, 2)
-        stacked_logits = torch.stack([llm_logits, cnn_logits], dim=1)
+        stacked_logits = torch.stack([llm_logits, cnn_logits, distance], dim=1)
 
         # 🔥 MLP fusion
         fused_logits = self.fusion_mlp(stacked_logits).squeeze(-1)  # (B,)
@@ -75,19 +81,3 @@ class FusionModel(nn.Module):
             return fused_logits, llm_logits, cnn_logits
 
         return fused_logits
-
-    # ### ONLY LLM ###
-    # def forward(self, input_ids, attention_mask, cnn_inputs):
-    #     # LLM logits
-    #     llm_logits = self.reader_model(
-    #         input_ids=input_ids, attention_mask=attention_mask
-    #     )  # (B,)
-    #
-    #     return llm_logits
-
-    # ### ONLY CNN ###
-    # def forward(self, input_ids, attention_mask, cnn_inputs):
-    #     # CNN logits
-    #     cnn_logits = self.cnn_model(cnn_inputs)  # (B,)
-    #
-    #     return cnn_logits

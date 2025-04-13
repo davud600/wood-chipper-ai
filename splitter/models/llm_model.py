@@ -4,7 +4,7 @@ from transformers import AutoModel, AutoConfig
 
 class ReaderModel(nn.Module):
     def __init__(
-        self, model_name: str = "distilbert-base-uncased", dropout: float = 0.3
+        self, model_name: str = "distilbert-base-uncased", dropout: float = 0.25
     ):
         super(ReaderModel, self).__init__()
         self.config = AutoConfig.from_pretrained(model_name)

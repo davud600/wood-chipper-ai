@@ -66,7 +66,7 @@ def main():
     )
     test_loader = DataLoader(test_dataset, batch_size=testing_mini_batch_size)
 
-    pos_weight = torch.tensor([(N0 / N1) ** 0.75], dtype=torch.float16).to(device)
+    pos_weight = torch.tensor([(N0 / N1) ** 0.5], dtype=torch.float16).to(device)
 
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = optim.AdamW(
@@ -91,6 +91,7 @@ def main():
             attention_mask = batch["attention_mask"].to(device)
             cnn_input = batch["cnn_input"].to(device)
             labels = batch["label"].to(device)
+            prev_first_page_distance = batch["prev_first_page_distance"].to(device)
 
             # print("[LLM] tokens:", tokens[:40])
             # print("[LLM] attention mask sum:", attention_mask[0].sum().item())
@@ -105,8 +106,23 @@ def main():
             with torch.amp.autocast_mode.autocast(
                 device_type="cuda", dtype=torch.float16
             ):
-                logits = model(input_ids, attention_mask, cnn_input)
-                loss = criterion(logits, labels.to(torch.float16))
+                # logits = model(
+                #     input_ids, attention_mask, cnn_input
+                # )
+                # loss = criterion(logits, labels.to(torch.float16))
+
+                alpha = 0.5
+                fused_logits, llm_logits, cnn_logits = model(
+                    input_ids,
+                    attention_mask,
+                    cnn_input,
+                    prev_first_page_distance,
+                    return_all_logits=True,
+                )
+                fused_loss = criterion(fused_logits, labels.to(torch.float16))
+                aux_llm_loss = criterion(llm_logits, labels.to(torch.float16))
+                aux_cnn_loss = criterion(cnn_logits, labels.to(torch.float16))
+                loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)

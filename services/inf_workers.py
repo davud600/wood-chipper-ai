@@ -304,9 +304,14 @@ def process_batch(
         #     debug_path = os.path.join(debug_dir, f"page_{page_number:03d}.png")
         #     Image.fromarray(img).save(debug_path)
 
+        prev_split_key = f"prev_split_page:{document_context['document_id']}"
+        prev_split_bytes = redis.get(prev_split_key)
+        prev_split_page = int.from_bytes(prev_split_bytes, byteorder="big", signed=True)  # type: ignore
+        distance = curr_page - (prev_split_page + 1)
+
         # inference...
         found_first_page, offset = is_first_page(
-            tokenizer, model, content_batch, images
+            tokenizer, model, content_batch, images, distance
         )
 
     print("found_first_page", found_first_page)

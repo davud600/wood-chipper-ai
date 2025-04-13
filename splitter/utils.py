@@ -77,8 +77,11 @@ def evaluate(model, dataloader, criterion, device):
             attention_mask = batch["attention_mask"].to(device)
             cnn_input = batch["cnn_input"].to(device)
             labels = batch["label"].to(device)
+            prev_first_page_distance = batch["prev_first_page_distance"].to(device)
 
-            logits = model(input_ids, attention_mask, cnn_input)
+            logits = model(
+                input_ids, attention_mask, cnn_input, prev_first_page_distance
+            )
             loss = criterion(logits, labels.to(torch.float16))
             total_loss += loss.item()
 

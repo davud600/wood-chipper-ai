@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from transformers import PreTrainedTokenizer
     from .model import FusionModel
 
-from config.settings import max_length, image_output_size
+from config.settings import max_length, image_output_size, doc_length_bins
 
 
 def is_first_page(
@@ -18,6 +18,7 @@ def is_first_page(
     model: "FusionModel",
     content: str,
     images: list[np.ndarray],
+    prev_first_page_distance: int,
 ) -> tuple[bool, int]:
     """
     Predicts whether a given page is the first page of a new document.
@@ -84,12 +85,14 @@ def is_first_page(
     )
     input_ids = encoding["input_ids"].to("cuda")
     attention_mask = encoding["attention_mask"].to("cuda")
+    distance = prev_first_page_distance / max(doc_length_bins)
+    distance = torch.tensor([distance], dtype=torch.float16).to("cuda")
 
     # with torch.no_grad():
     with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
-        logits = model(input_ids, attention_mask, cnn_input)
+        logits = model(input_ids, attention_mask, cnn_input, distance)
 
     pred_prob = torch.sigmoid(logits[0]).detach().cpu().numpy()
     print("pred_prob", pred_prob)
 
-    return bool(pred_prob > 0.5), 0
+    return bool(torch.sigmoid(logits) > 0.5), 0

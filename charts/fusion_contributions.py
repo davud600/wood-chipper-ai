@@ -17,8 +17,7 @@ from splitter.dataset.dataset import DocumentDataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # === Setup ===
-OUTPUT_PATH = os.path.join(project_root, "visualizations/fusion_contributions.png")
-os.makedirs(OUTPUT_PATH, exist_ok=True)
+OUTPUT_PATH = os.path.join(project_root, "visualizations", "fusion_contributions.png")
 
 print("[INFO] Loading model and data...")
 
@@ -26,11 +25,7 @@ print("[INFO] Loading model and data...")
 tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 model = FusionModel(image_size=image_output_size).to(device)
 model.eval()
-model.load_state_dict(
-    torch.load(
-        "/home/davud/wood-chipper-ai/data/models/splitter_llm.pth", map_location=device
-    )
-)
+model.load_state_dict(torch.load(SPLITTER_MODEL_PATH, map_location=device))
 
 # Load test dataset
 test_dataset = DocumentDataset(
@@ -39,7 +34,7 @@ test_dataset = DocumentDataset(
     mode="test",
     image_size=image_output_size,
 )
-test_loader = DataLoader(test_dataset, batch_size=1)
+test_loader = DataLoader(test_dataset, batch_size=16)
 
 # === Inference + Logit Collection ===
 llm_scores = []

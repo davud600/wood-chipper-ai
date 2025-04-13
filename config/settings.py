@@ -14,21 +14,22 @@ max_length = 512
 prev_pages_to_append = 1
 pages_to_append = 1
 max_vocab_size = 60000
-training_mini_batch_size = 18
-testing_mini_batch_size = 18
+training_mini_batch_size = 20
+testing_mini_batch_size = 20
 learning_rate = 0.00005
-weight_decay = 0.00025
+weight_decay = 0.0005
 patience = 15
 factor = 0.5
-epochs = 5
+epochs = 15
 log_steps = 10
-eval_steps = 100
+eval_steps = 50
 img_workers = 1
 ocr_workers = 2
 inf_workers = 1  # this can not be bigger than 1.
 ocr_batch_size = 2
 # image_output_size = (1000, 800)  # upscale this when processing dataset.
-image_output_size = (1024, 1024)
+# image_output_size = (1024, 1024)
+image_output_size = (512, 512)
 
 
 max_chars = {
@@ -53,7 +54,7 @@ DELETE_REDIS_KEYS_TIMEOUT = 60
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CORPUS_FILE = os.path.join(project_root, "data", "dataset", "corpus.txt")
 TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
-SPLITTER_MODEL_PATH = os.path.join(project_root, "models", "data", "splitter.pth")
+SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "data", "split_documents")
 IMAGES_DIR = os.path.join(project_root, "data", "dataset", "images")
@@ -99,3 +100,20 @@ DOCUMENT_TYPES = {
     "refinance-document": 14,
     "transfer-document": 15,
 }
+
+doc_length_bins = [5, 10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500, 800]
+doc_length_weights = [
+    0.228141,
+    0.137013,
+    0.134446,
+    0.100112,
+    0.0884,
+    0.075084,
+    0.114552,
+    0.037061,
+    0.038184,
+    0.020857,
+    0.016044,
+    0.009145,
+    0.000963,
+]

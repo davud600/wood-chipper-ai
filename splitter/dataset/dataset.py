@@ -14,6 +14,8 @@ from config.settings import (
     prev_pages_to_append,
     pages_to_append,
     max_length,
+    doc_length_bins,
+    doc_length_weights,
 )
 from utils.general import clean_text
 
@@ -48,7 +50,7 @@ class DocumentDataset(Dataset):
         self, csv_path, tokenizer, mode="train", image_dir=None, image_size=(256, 256)
     ):
         super().__init__()
-        self.verbose_indices = set(range(3)) if mode == "train" else set()
+        self.verbose_indices = set(range(1)) if mode == "train" else set()
         self.tokenizer = tokenizer
         self.image_size = image_size
         self.mode = mode
@@ -78,7 +80,7 @@ class DocumentDataset(Dataset):
             img_path = os.path.join(self.image_dir, img_filename)
             # print(f"page {page_num} - {file_id}")
 
-            if doc_type == 0:
+            if doc_type == 0 or doc_type > 6:
                 continue
 
             if os.path.exists(img_path):
@@ -86,7 +88,7 @@ class DocumentDataset(Dataset):
 
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
-        max_files = 50
+        max_files = None
         all_files = self.all_data["file"].unique()
 
         if max_files is not None:
@@ -300,9 +302,20 @@ class DocumentDataset(Dataset):
             file_id, page_num, fallback_df
         )  # (C, H, W)
 
+        if page_num == 1:
+            prev_first_page_distance = random.choices(
+                doc_length_bins, weights=doc_length_weights, k=1
+            )[0]
+        else:
+            prev_first_page_distance = page_num - 1
+
+        prev_first_page_distance = prev_first_page_distance / max(doc_length_bins)
+
         if idx in self.verbose_indices:
-            # print(f"\n[🔍 DEBUG - Dataset Sample {idx}]")
-            # print(f"  File: {file_id}, Page: {page_num}, Label: {label}")
+            print(f"\n[🔍 DEBUG - Dataset Sample {idx}]")
+            print(
+                f"  File: {file_id}, Page: {page_num}, Label: {label}, Distance: {prev_first_page_distance}"
+            )
             # print(f"  Text context:\n  {full_text[:25]!r}...")
             # print(f"  input_ids[:10]: {input_ids[:10].tolist()}")
             # print(f"  CNN input shape: {cnn_input.shape}")  # -> (3, H, W)
@@ -326,6 +339,9 @@ class DocumentDataset(Dataset):
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "cnn_input": cnn_input,
-            "label": torch.tensor(label, dtype=torch.float),
+            "label": torch.tensor(label, dtype=torch.float16),
             "doc_type": torch.tensor(doc_type, dtype=torch.int),
+            "prev_first_page_distance": torch.tensor(
+                [prev_first_page_distance], dtype=torch.float16
+            ),
         }
