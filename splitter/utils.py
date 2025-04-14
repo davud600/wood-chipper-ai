@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 from sklearn.metrics import (
@@ -9,6 +10,7 @@ from sklearn.metrics import (
 )
 
 from .dataset.dataset import DocumentDataset
+from config.settings import prev_pages_to_append, pages_to_append
 
 
 def count_classes(dataset: DocumentDataset) -> tuple[int, int]:
@@ -69,36 +71,174 @@ def evaluate(model, dataloader, criterion, device):
 
     model.eval()
     all_preds, all_labels = [], []
+    all_llm_logits, all_cnn_logits = [], []
+    all_rows = []
     total_loss = 0
 
     with torch.no_grad():
         for batch in dataloader:
+
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             cnn_input = batch["cnn_input"].to(device)
-            labels = batch["label"].to(device)
-            prev_first_page_distance = batch["prev_first_page_distance"].to(device)
+            labels = batch["labels"].to(device)
+            distance = batch["prev_first_page_distance"].to(device)
+            all_rows.extend(batch["files_and_pages"])
 
-            logits = model(
-                input_ids, attention_mask, cnn_input, prev_first_page_distance
+            logits, llm_logits, cnn_logits = model(
+                input_ids,
+                attention_mask,
+                cnn_input,
+                distance,
+                return_all_logits=True,
             )
-            loss = criterion(logits, labels.to(torch.float16))
+
+            loss = criterion(logits, labels.to(torch.float32))
             total_loss += loss.item()
 
             preds = (torch.sigmoid(logits) > 0.5).long()
+
             all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+            all_labels.extend(labels.float().cpu().numpy())
+            all_llm_logits.extend(llm_logits.cpu().numpy())
+            all_cnn_logits.extend(cnn_logits.cpu().numpy())
 
+    all_preds = np.array(all_preds)
+    all_labels = np.array(all_labels)
+
+    # Overall micro-averaged metrics
     acc = accuracy_score(all_labels, all_preds)
-    rec = recall_score(all_labels, all_preds, zero_division=0.0)  # type: ignore
-    prec = precision_score(all_labels, all_preds, zero_division=0.0)  # type: ignore
-    f1 = f1_score(all_labels, all_preds, zero_division=0.0)  # type: ignore
-    cm = confusion_matrix(all_labels, all_preds)
+    rec = recall_score(all_labels, all_preds, average="micro", zero_division=0.0)  # type: ignore
+    prec = precision_score(all_labels, all_preds, average="micro", zero_division=0.0)  # type: ignore
+    f1 = f1_score(all_labels, all_preds, average="micro", zero_division=0.0)  # type: ignore
 
-    return total_loss / len(dataloader), acc, rec, prec, f1, cm
+    # Per-position metrics
+    pos_labels = (
+        [f"prev_{prev_pages_to_append - i}" for i in range(prev_pages_to_append)]
+        + ["curr"]
+        + [f"next_{i + 1}" for i in range(pages_to_append)]
+    )
+
+    print("\n📊 Per-Position Evaluation:")
+    print(
+        f"{'Position':<10} | {'Acc':<6} | {'Prec':<6} | {'Rec':<6} | {'F1':<6} | TP / FP / FN"
+    )
+    print("-" * 60)
+
+    cms = []
+    for i, label in enumerate(pos_labels):
+        y_true = all_labels[:, i]
+        y_pred = all_preds[:, i]
+
+        cm = confusion_matrix(y_true, y_pred)
+        cms.append(cm)
+
+        TP = cm[1, 1] if cm.shape == (2, 2) else 0
+        FP = cm[0, 1] if cm.shape[1] > 1 else 0
+        FN = cm[1, 0] if cm.shape[0] > 1 else 0
+
+        acc_i = accuracy_score(y_true, y_pred)
+        prec_i = precision_score(y_true, y_pred, zero_division=0.0)  # type: ignore
+        rec_i = recall_score(y_true, y_pred, zero_division=0.0)  # type: ignore
+        f1_i = f1_score(y_true, y_pred, zero_division=0.0)  # type: ignore
+
+        print(
+            f"{label:<10} | {acc_i:.4f} | {prec_i:.4f} | {rec_i:.4f} | {f1_i:.4f} | {TP} / {FP} / {FN}"
+        )
+
+    print("\n🔍 Sample Breakdown for First Batch:\n")
+
+    sample_idx = 0
+    sample_files = all_rows[sample_idx]
+    sample_labels = all_labels[sample_idx]
+    sample_preds = all_preds[sample_idx]
+    sample_llm = all_llm_logits[sample_idx]
+    sample_cnn = all_cnn_logits[sample_idx]
+
+    # if not isinstance(sample_files, list):
+    #     sample_files = [sample_files]
+    #     print("⚠️ files_and_pages was not a list — patched manually")
+
+    if len(sample_files) != len(pos_labels):
+        ...
+        # print(
+        #     f"❌ Mismatch: {len(sample_files)} filenames vs {len(pos_labels)} expected positions"
+        # )
+        # print("→ sample_files:", sample_files)
+        # print("→ Skipping sample breakdown.\n")
+    else:
+        for i in range(len(pos_labels)):
+            print(
+                # f"{pos_labels[i]:<7} | {sample_files[i]:<60} | "
+                f"GT: {int(sample_labels[i])} | Pred: {int(sample_preds[i])} | "
+                f"LLM: {sample_llm[i]:+.4f} | CNN: {sample_cnn[i]:+.4f}"
+            )
+
+    # print(f"   Labels: {all_labels[0]}")
+    # print(f"🧠 LLM logits: {all_llm_logits[0]}")
+    # print(f"🖼️ CNN logits: {all_cnn_logits[0]}")
+
+    return total_loss / len(dataloader), acc, rec, prec, f1, cms
+
+    # model.eval()
+    # all_preds, all_labels = [], []
+    # all_llm_logits, all_cnn_logits = [], []
+    # total_loss = 0
+    #
+    # with torch.no_grad():
+    #     for batch in dataloader:
+    #         input_ids = batch["input_ids"].to(device)
+    #         attention_mask = batch["attention_mask"].to(device)
+    #         cnn_input = batch["cnn_input"].to(device)
+    #         labels = batch["labels"].to(device)
+    #         prev_first_page_distance = batch["prev_first_page_distance"].to(device)
+    #
+    #         logits, llm_logits, cnn_logits = model(
+    #             input_ids,
+    #             attention_mask,
+    #             cnn_input,
+    #             prev_first_page_distance,
+    #             return_all_logits=True,
+    #         )
+    #
+    #         # logits = model(
+    #         #     input_ids,
+    #         #     attention_mask,
+    #         #     cnn_input,
+    #         #     prev_first_page_distance,
+    #         # )
+    #
+    #         loss = criterion(logits, labels.to(torch.float16))
+    #         total_loss += loss.item()
+    #
+    #         preds = (torch.sigmoid(logits) > 0.5).long()
+    #         all_preds.extend(preds.cpu().numpy())
+    #         all_labels.extend(labels.float().cpu().numpy())
+    #         all_llm_logits.extend(llm_logits.cpu().numpy())
+    #         all_cnn_logits.extend(cnn_logits.cpu().numpy())
+    #
+    # all_labels = np.array(all_labels)
+    # all_preds = np.array(all_preds)
+    #
+    # acc = accuracy_score(all_labels, all_preds)
+    # rec = recall_score(all_labels, all_preds, average="micro", zero_division=0.0)  # type: ignore
+    # prec = precision_score(all_labels, all_preds, average="micro", zero_division=0.0)  # type: ignore
+    # f1 = f1_score(all_labels, all_preds, average="micro", zero_division=0.0)  # type: ignore
+    # cms = []
+    # for i in range(prev_pages_to_append + 1 + pages_to_append):
+    #     cm = confusion_matrix(all_labels[:, i], all_preds[:, i])
+    #     cms.append(cm)
+    #
+    # print(f"\n📄 Labels: {all_labels[0]}")
+    # print(f"🧠 LLM logits: {all_llm_logits[0]}")
+    # print(f"🖼️ CNN logits: {all_cnn_logits[0]}")
+    #
+    # return total_loss / len(dataloader), acc, rec, prec, f1, cms
 
 
-def verify_alignment(model, tokenizer, dataset: DocumentDataset, idx: int):
+def verify_alignment(
+    model, tokenizer, dataset: DocumentDataset, idx: int, device: torch.device
+):
     """
     Debugs a single data sample to verify model alignment.
 
@@ -165,3 +305,18 @@ def verify_alignment(model, tokenizer, dataset: DocumentDataset, idx: int):
         plt.title("Stacked CNN Input")
         plt.axis("off")
         plt.show()
+
+
+def custom_collate_fn(batch):
+    batch_dict = {key: [] for key in batch[0].keys()}
+    for sample in batch:
+        for key, value in sample.items():
+            batch_dict[key].append(value)
+
+    # Stack tensor-like things, leave lists alone
+    for key in batch_dict:
+        if key != "files_and_pages":
+            if isinstance(batch_dict[key][0], torch.Tensor):
+                batch_dict[key] = torch.stack(batch_dict[key])
+
+    return batch_dict

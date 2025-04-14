@@ -80,7 +80,7 @@ class DocumentDataset(Dataset):
             img_path = os.path.join(self.image_dir, img_filename)
             # print(f"page {page_num} - {file_id}")
 
-            if doc_type == 0:
+            if doc_type == 0 or doc_type > 6:
                 continue
 
             if os.path.exists(img_path):
@@ -110,13 +110,6 @@ class DocumentDataset(Dataset):
             self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
         else:
             self.data = self.all_data
-
-        # self.data.shuffle()
-        # random.shuffle(list(self.data["labels"].values))
-        # shuffled_labels = self.data["page"].sample(frac=1, random_state=42).values
-        # self.data["page"] = shuffled_labels
-
-        # self.data = self.all_data
 
         print(f"[INFO] Loaded {len(self.data)} valid rows (with existing images)")
 
@@ -185,11 +178,10 @@ class DocumentDataset(Dataset):
                     prev_file = fallback_pages[tag]
 
                     prev_pages = self.all_data[self.all_data["file"] == prev_file]
-                    if not prev_pages.empty:
-                        last_row = prev_pages.sort_values("page").iloc[-1]  # type: ignore
-                        text = str(last_row["content"])
-                        texts.append(f"<{tag}>{text[:char_limit]}</{tag}>")
-                        continue
+                    last_row = prev_pages.sort_values("page").iloc[-1]  # type: ignore
+                    text = str(last_row["content"])
+                    texts.append(f"<{tag}>{text[:char_limit]}</{tag}>")
+                    continue
 
             # === Forward context missing: use first page of random doc ===
             if offset > 0:
@@ -200,15 +192,15 @@ class DocumentDataset(Dataset):
                     next_file = fallback_pages[tag]
 
                     next_pages = self.all_data[self.all_data["file"] == next_file]
-                    if not next_pages.empty:
-                        first_row = next_pages.sort_values("page").iloc[0]  # type: ignore
-                        text = str(first_row["content"])
-                        texts.append(f"<{tag}>{text[:char_limit]}</{tag}>")
-                        continue
+                    first_row = next_pages.sort_values("page").iloc[0]  # type: ignore
+                    text = str(first_row["content"])
+                    texts.append(f"<{tag}>{text[:char_limit]}</{tag}>")
+                    continue
 
             # === Fallback: pad with empty or dummy ===
             texts.append(f"<{tag}></{tag}>")
 
+        # # debugging
         # if hasattr(self, "verbose_tag_debug") and self.verbose_tag_debug:
         #     print(f"\n[📝 TEXT CONTEXT for {file_id} page {center_page}]")
         #     for tag, file in fallback_pages.items():
@@ -218,7 +210,6 @@ class DocumentDataset(Dataset):
 
     def _get_context_images(self, file_id, center_page, fallback_pages=None):
         images = []
-        # files = self.all_data["file"].unique().tolist()
 
         for offset in range(-self.prev_n, self.next_n + 1):
             if offset == 0:
@@ -228,7 +219,7 @@ class DocumentDataset(Dataset):
             else:
                 tag = f"next_page_{offset}"
 
-            is_fallback = False
+            # is_fallback = False
             current_file = file_id
             page_idx = center_page + offset - 1
 
@@ -240,7 +231,7 @@ class DocumentDataset(Dataset):
             if len(match) > 0:
                 image_tensor = self._load_image_tensor(file_id, page_idx)
             elif fallback_pages and tag in fallback_pages:
-                is_fallback = True
+                # is_fallback = True
                 current_file = fallback_pages[tag]
                 fallback_df = self.all_data[self.all_data["file"] == current_file]
 
@@ -259,17 +250,116 @@ class DocumentDataset(Dataset):
 
             images.append(image_tensor)
 
-            if hasattr(self, "verbose_tag_debug") and self.verbose_tag_debug:
-                fallback_note = (
-                    "fallback"
-                    if is_fallback
-                    else ("original" if len(match) > 0 else "empty fallback")
-                )
-                # print(
-                #     f"  🖼️ {tag}: file='{current_file}', page={page_idx + 1} ({fallback_note})"
-                # )
+            # # debugging
+            # if hasattr(self, "verbose_tag_debug") and self.verbose_tag_debug:
+            #     fallback_note = (
+            #         "fallback"
+            #         if is_fallback
+            #         else ("original" if len(match) > 0 else "empty fallback")
+            #     )
+            #     print(
+            #         f"  🖼️ {tag}: file='{current_file}', page={page_idx + 1} ({fallback_note})"
+            #     )
 
         return torch.cat(images, dim=0)  # shape: (C, H, W)
+
+    def _get_context_labels(
+        self, file_id, center_page, fallback_pages=None
+    ) -> torch.Tensor:
+        """
+        Returns Tensor (prev + 1 + next,)
+        """
+
+        labels = []
+
+        for offset in range(-self.prev_n, self.next_n + 1):
+            if offset == 0:
+                tag = "curr_page"
+            elif offset < 0:
+                tag = f"prev_page_{-offset}"
+            else:
+                tag = f"next_page_{offset}"
+
+            current_file = file_id
+            page_idx = center_page + offset - 1
+
+            match = self.all_data[
+                (self.all_data["file"] == file_id)
+                & (self.all_data["page"] == center_page + offset)
+            ]
+
+            if len(match) > 0:
+                label = self._get_item_label(page_idx)
+            elif fallback_pages and tag in fallback_pages:
+                current_file = fallback_pages[tag]
+                fallback_df = self.all_data[self.all_data["file"] == current_file]
+
+                if offset < 0:
+                    fallback_row = fallback_df.sort_values("page").iloc[-1]  # type: ignore
+                else:
+                    fallback_row = fallback_df.sort_values("page").iloc[0]  # type: ignore
+
+                page_idx = int(fallback_row["page"]) - 1
+                label = self._get_item_label(page_idx)
+            else:
+                label = torch.tensor(0, dtype=torch.float16)
+
+            labels.append(label)
+
+        return torch.cat(labels, dim=0)  # shape: (C,)
+
+    def _get_item_label(self, idx: int) -> torch.Tensor:
+        return torch.tensor(
+            [int(self.data.iloc[idx]["page"] == 1)], dtype=torch.float16
+        )
+
+    def _get_context_row_data(
+        self,
+        file_id,
+        center_page,
+        fallback_pages=None,
+    ) -> list[str]:
+        """
+        Returns list of strings (prev + 1 + next,) (logging)
+        """
+
+        row_data = []
+
+        for offset in range(-self.prev_n, self.next_n + 1):
+            if offset == 0:
+                tag = "curr_page"
+            elif offset < 0:
+                tag = f"prev_page_{-offset}"
+            else:
+                tag = f"next_page_{offset}"
+
+            current_file = file_id
+            page_idx = center_page + offset - 1
+
+            match = self.all_data[
+                (self.all_data["file"] == file_id)
+                & (self.all_data["page"] == center_page + offset)
+            ]
+
+            if len(match) > 0:
+                row = f"{current_file}_page_{page_idx:03d}.png"
+            elif fallback_pages and tag in fallback_pages:
+                current_file = fallback_pages[tag]
+                fallback_df = self.all_data[self.all_data["file"] == current_file]
+
+                if offset < 0:
+                    fallback_row = fallback_df.sort_values("page").iloc[-1]  # type: ignore
+                else:
+                    fallback_row = fallback_df.sort_values("page").iloc[0]  # type: ignore
+
+                page_idx = int(fallback_row["page"]) - 1
+                row = f"{fallback_row["file"]}_page_{page_idx:03d}.png"
+            else:
+                row = f"[MISSING]"
+
+            row_data.append(row)
+
+        return row_data
 
     def __getitem__(self, idx):
         if idx in self.verbose_indices:
@@ -281,7 +371,6 @@ class DocumentDataset(Dataset):
         row = self.data.iloc[idx]
         file_id = row["file"]
         page_num = int(row["page"])
-        label = 1 if page_num == 1 else 0
         doc_type = int(row["type"])
 
         # === Build OCR context ===
@@ -302,6 +391,10 @@ class DocumentDataset(Dataset):
             file_id, page_num, fallback_df
         )  # (C, H, W)
 
+        # === Labels ===
+        labels = self._get_context_labels(file_id, page_num, fallback_df)  # (C,)
+        labels = labels.half()
+
         if page_num == 1:
             prev_first_page_distance = random.choices(
                 doc_length_bins, weights=doc_length_weights, k=1
@@ -311,35 +404,39 @@ class DocumentDataset(Dataset):
 
         prev_first_page_distance = prev_first_page_distance / max(doc_length_bins)
 
-        if idx in self.verbose_indices:
-            print(f"\n[🔍 DEBUG - Dataset Sample {idx}]")
-            print(
-                f"  File: {file_id}, Page: {page_num}, Label: {label}, Distance: {prev_first_page_distance}"
-            )
-            # print(f"  Text context:\n  {full_text[:25]!r}...")
-            # print(f"  input_ids[:10]: {input_ids[:10].tolist()}")
-            # print(f"  CNN input shape: {cnn_input.shape}")  # -> (3, H, W)
+        files_and_pages = self._get_context_row_data(file_id, page_num, fallback_df)
 
-            # save all 3 images of cnn input
-            for i, img in enumerate(cnn_input):
-                img = img.numpy()
-                # print("img shape:", img.shape)  # should be -> (H, W)
-
-                dir_path = f"/home/davud/wood-chipper-ai/debug_cnn/{idx}"
-                os.makedirs(dir_path, exist_ok=True)
-
-                # image_path = f"{dir_path}/{file_id}_page_{page_num + offset}.png"
-                image_path = f"{dir_path}/{i}.png"
-
-                img = img.squeeze()  # (1, H, W) -> (H, W)
-                img = (img * 255).clip(0, 255).astype(np.uint8)
-                Image.fromarray(img, mode="L").save(image_path)
+        # # debugging
+        # if idx in self.verbose_indices:
+        #     print(f"\n[🔍 DEBUG - Dataset Sample {idx}]")
+        #     print(
+        #         f"  File: {file_id}, Page: {page_num}, Labels: {labels}, Distance: {prev_first_page_distance}"
+        #     )
+        #     print(f"  Text context:\n  {full_text[:25]!r}...")
+        #     print(f"  input_ids[:10]: {input_ids[:10].tolist()}")
+        #     print(f"  CNN input shape: {cnn_input.shape}")  # -> (3, H, W)
+        #
+        #     # save all 3 images of cnn input
+        #     for i, img in enumerate(cnn_input):
+        #         img = img.numpy()
+        #         # print("img shape:", img.shape)  # should be -> (H, W)
+        #
+        #         dir_path = f"/home/davud/wood-chipper-ai/debug_cnn/{idx}"
+        #         os.makedirs(dir_path, exist_ok=True)
+        #
+        #         # image_path = f"{dir_path}/{file_id}_page_{page_num + offset}.png"
+        #         image_path = f"{dir_path}/{i}.png"
+        #
+        #         img = img.squeeze()  # (1, H, W) -> (H, W)
+        #         img = (img * 255).clip(0, 255).astype(np.uint8)
+        #         Image.fromarray(img, mode="L").save(image_path)
 
         return {
+            "files_and_pages": files_and_pages,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "cnn_input": cnn_input,
-            "label": torch.tensor(label, dtype=torch.float16),
+            "labels": labels,
             "doc_type": torch.tensor(doc_type, dtype=torch.int),
             "prev_first_page_distance": torch.tensor(
                 [prev_first_page_distance], dtype=torch.float16

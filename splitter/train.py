@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from .utils import count_classes, evaluate
+from .utils import count_classes, evaluate, custom_collate_fn
 from .model import FusionModel
 from .dataset.dataset import DocumentDataset
 from config.settings import (
@@ -65,7 +65,10 @@ def main():
     count_classes(test_dataset)
 
     train_loader = DataLoader(
-        train_dataset, batch_size=training_mini_batch_size, shuffle=True
+        train_dataset,
+        batch_size=training_mini_batch_size,
+        shuffle=True,
+        collate_fn=custom_collate_fn,
     )
     test_loader = DataLoader(test_dataset, batch_size=testing_mini_batch_size)
 
@@ -93,7 +96,7 @@ def main():
             tokens = tokenizer.convert_ids_to_tokens(input_ids[0])
             attention_mask = batch["attention_mask"].to(device)
             cnn_input = batch["cnn_input"].to(device)
-            labels = batch["label"].to(device)
+            labels = batch["labels"].to(device)
             prev_first_page_distance = batch["prev_first_page_distance"].to(device)
 
             # print("[LLM] tokens:", tokens[:40])
@@ -143,15 +146,18 @@ def main():
             #     print(f"[DEBUG] True labels (first 2): {true_labels}")
 
             if step % eval_steps == 0:
-                eval_loss, acc, rec, prec, f1, cm = evaluate(
+                print(f"\n[Eval @ step {step}]")
+                eval_loss, acc, rec, prec, f1, cms = evaluate(
                     model, test_loader, criterion, device
                 )
                 scheduler.step(eval_loss)
-                print(f"\n[Eval @ step {step}]")
-                print(
-                    f"  Loss: {eval_loss:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}"
-                )
-                print(f"  Confusion Matrix:\n{cm}\n")
+
+                # print(
+                #     f"  Loss: {eval_loss:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}"
+                # )
+
+                for cm in cms:
+                    print(f"  Confusion Matrix:\n{cm}\n")
 
                 if f1 > best_f1:
                     best_f1 = f1

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from config.settings import pages_to_append, prev_pages_to_append
 from .models.llm_model import ReaderModel
 from .models.cnn_model import CNNModel
 
@@ -44,12 +45,12 @@ class FusionModel(nn.Module):
         self.reader_model = reader_model or ReaderModel()
         self.cnn_model = cnn_model or CNNModel(image_size=image_size)
 
-        # 🔥 Spicy MLP: 3 inputs → 16 hidden → 1 output
+        # 🔥 Spicy MLP: (prev + 1 + next) * 2 + 1(distance) input → 8 hidden → prev + 1 + next outputs
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(3, 16),
+            nn.Linear((prev_pages_to_append + 1 + pages_to_append) * 2 + 1, 8),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(16, 1),
+            nn.Linear(8, prev_pages_to_append + 1 + pages_to_append),
         )
 
     ## FUSED ###
@@ -71,8 +72,10 @@ class FusionModel(nn.Module):
         if self.training:
             distance += torch.randn_like(distance) * 0.05
 
-        # Stack logits → (B, 2)
-        stacked_logits = torch.stack([llm_logits, cnn_logits, distance], dim=1)
+        # Stack logits → (B, (prev + 1 + next) * 2 + 1(distance))
+        stacked_logits = torch.cat(
+            [llm_logits, cnn_logits, distance.unsqueeze(-1)], dim=1
+        )
 
         # 🔥 MLP fusion
         fused_logits = self.fusion_mlp(stacked_logits).squeeze(-1)  # (B,)

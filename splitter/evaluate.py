@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
 from config.settings import SPLITTER_MODEL_PATH, TESTING_DATA_CSV, image_output_size
-from .utils import count_classes, evaluate, verify_alignment
+from .utils import count_classes, evaluate, verify_alignment, custom_collate_fn
 from .model import FusionModel
 from .dataset.dataset import DocumentDataset
 
@@ -40,7 +40,11 @@ def main():
     )
     count_classes(test_dataset)
 
-    test_loader = DataLoader(test_dataset, batch_size=20)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=20,
+        collate_fn=custom_collate_fn,
+    )
     criterion = nn.BCEWithLogitsLoss()
 
     print("[INFO] Starting training...")
@@ -59,12 +63,14 @@ def main():
         print(f"[DEBUG] Predictions (first 2): {pred_probs}")
         print(f"[DEBUG] True labels (first 2): {true_labels}")
 
-    _, acc, rec, prec, f1, cm = evaluate(model, test_loader, criterion, device)
-    print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
-    print(f"  Confusion Matrix:\n{cm}\n")
+    _, acc, rec, prec, f1, cms = evaluate(model, test_loader, criterion, device)
+    # print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
+
+    # for cm in cms:
+    #     print(f"  Confusion Matrix:\n{cm}\n")
 
     for i in range(50):
-        verify_alignment(model, tokenizer, test_dataset, idx=i)
+        verify_alignment(model, tokenizer, test_dataset, i, device)
 
 
 if __name__ == "__main__":
