@@ -29,12 +29,11 @@ class ReaderModel(nn.Module):
         dropped = self.dropout(x)
         logits = self.classifier(dropped)  # (b, 1)
 
-        # debugging - start
-        true_labels = data["labels"][:1].cpu().numpy()
+        # debug - start
         pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] True labels: {data['labels'].squeeze(1)[0]}")
         print(f"[DEBUG] LLM pred: {pred_probs.squeeze(1)}")
-        # debugging - start
+        # debug - start
 
         if loss_fn:
             return logits, loss_fn(logits, data["labels"])

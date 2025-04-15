@@ -40,6 +40,13 @@ def train_loop(
     )
     test_loader = DataLoader(test_dataset, batch_size=testing_mini_batch_size)
 
+    # debug - start
+    batch = next(iter(train_loader))
+    for k, v in batch.items():
+        if isinstance(v, torch.Tensor):
+            print(f"[check] batch[{k}] on: {v.device}")
+    # debug - end
+
     pos_weight = torch.tensor([(N0 / N1) ** 0.5], dtype=torch.float16).to(device)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = optim.AdamW(
@@ -69,6 +76,8 @@ def train_loop(
         model.train()
 
         for batch in train_loader:
+            step += 1
+
             with torch.amp.autocast_mode.autocast(
                 device_type="cuda", dtype=torch.float16
             ):
@@ -126,9 +135,10 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
     model = FusionModel(image_size=image_output_size).to(device)
-    model.load_state_dict(
-        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
-    )
+    # model.load_state_dict(
+    #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+    # )
+    print(f"[check] model on: {next(model.parameters()).device}")
 
     print("[training]")
     train_dataset = DocumentDataset(

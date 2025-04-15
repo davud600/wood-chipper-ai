@@ -95,17 +95,17 @@ class DocumentDataset(Dataset):
             img_filename = f"{file_id}_page_{(page_num - 1):03d}.png"
             img_path = os.path.join(self.image_dir, img_filename)
 
-            doc_type = int(row["type"])
+            # doc_type = int(row["type"])
             # print(f"page {page_num} - {file_id}")
-            if doc_type == 0 or doc_type > 6:
-                continue
+            # if doc_type == 0 or doc_type > 6:
+            #     continue
 
             if os.path.exists(img_path):
                 valid_rows.append(row)
 
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
-        max_files = 200
+        max_files = None
         all_files = self.all_data["file"].unique()
 
         if max_files is not None:
@@ -246,11 +246,12 @@ class DocumentDataset(Dataset):
             # === Fallback: pad with empty or dummy ===
             texts.append(f"<{tag}></{tag}>")
 
-        # # debugging
+        # # debug - start
         # if hasattr(self, "verbose_tag_debug") and self.verbose_tag_debug:
         #     print(f"\n[📝 TEXT CONTEXT for {file_id} page {center_page}]")
         #     for tag, file in fallback_pages.items():
         #         print(f"  ⏪ {tag} used fallback file: {file}")
+        # # debug - end
 
         return "".join(texts), fallback_pages
 
@@ -296,7 +297,7 @@ class DocumentDataset(Dataset):
     #
     #         images.append(image_tensor)
     #
-    #         # # debugging
+    #         # # debug - start
     #         # if hasattr(self, "verbose_tag_debug") and self.verbose_tag_debug:
     #         #     fallback_note = (
     #         #         "fallback"
@@ -306,6 +307,7 @@ class DocumentDataset(Dataset):
     #         #     print(
     #         #         f"  🖼️ {tag}: file='{current_file}', page={page_idx + 1} ({fallback_note})"
     #         #     )
+    #         # # debug - end
     #
     #     return torch.cat(images, dim=0)  # shape: (C, H, W)
 
@@ -464,7 +466,7 @@ class DocumentDataset(Dataset):
                     fallback_row = fallback_df.sort_values("page").iloc[0]  # type: ignore
 
                 page_idx = int(fallback_row["page"]) - 1
-                row = f"{fallback_row["file"]}_page_{page_idx:03d}.png"
+                row = f"{fallback_row['file']}_page_{page_idx:03d}.png"
 
             row_data.append(row)
 

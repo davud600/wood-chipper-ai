@@ -78,16 +78,11 @@ class FusionModel(nn.Module):
         )
         logits = self.fusion_mlp(stack)
 
-        # debugging - start
-        true_labels = data["labels"][:1].cpu().numpy()
+        # debug - start
         fusion_pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        cnn_pred_probs = torch.sigmoid(cnn_logits[:1]).detach().cpu().numpy()
-        llm_pred_probs = torch.sigmoid(llm_logits[:1]).detach().cpu().numpy()
-        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] True labels: {data['labels'].squeeze(1)[0]}")
         print(f"[DEBUG] Fusion pred: {fusion_pred_probs.squeeze(1)}")
-        print(f"[DEBUG] CNN pred: {cnn_pred_probs.squeeze(1)}")
-        print(f"[DEBUG] LLM pred: {llm_pred_probs.squeeze(1)}")
-        # debugging - start
+        # debug - end
 
         if loss_fn:
             return logits, loss_fn(logits, data["labels"])
