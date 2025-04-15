@@ -14,15 +14,6 @@ max_length = 512
 prev_pages_to_append = 1
 pages_to_append = 1
 max_vocab_size = 60000
-training_mini_batch_size = 20
-testing_mini_batch_size = 20
-learning_rate = 0.00005
-weight_decay = 0.0005
-patience = 15
-factor = 0.5
-epochs = 15
-log_steps = 10
-eval_steps = 50
 img_workers = 1
 ocr_workers = 2
 inf_workers = 1  # this can not be bigger than 1.
@@ -55,13 +46,26 @@ DELETE_REDIS_KEYS_TIMEOUT = 60
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CORPUS_FILE = os.path.join(project_root, "data", "dataset", "corpus.txt")
 TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
+
 # SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
 # SPLITTER_MODEL_PATH = os.path.join(
 #     project_root, "data", "models", "splitter_all_types.pth"
 # )
+# SPLITTER_MODEL_PATH = os.path.join(
+#     project_root, "data", "models", "splitter_multi_class.pth"
+# )
+# SPLITTER_MODEL_PATH = os.path.join(
+#     project_root, "data", "models", "splitter_single_class.pth"
+# )
+
+# LATESET BEST MODEL TRAINED ON ALL DATA
+# SPLITTER_MODEL_PATH = os.path.join(
+#     project_root, "data", "models", "splitter_single_class_all_data.pth"
+# )
 SPLITTER_MODEL_PATH = os.path.join(
-    project_root, "data", "models", "splitter_multi_class.pth"
+    project_root, "data", "models", "splitter_single_class_all_data_2.pth"
 )
+
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "data", "split_documents")
 IMAGES_DIR = os.path.join(project_root, "data", "dataset", "images")

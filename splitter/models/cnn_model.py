@@ -6,10 +6,10 @@ from config.settings import prev_pages_to_append, pages_to_append
 
 
 class CNNModel(nn.Module):
-    def __init__(self, image_size=(256, 256), dropout: float = 0.1):
+    def __init__(self, image_size=(256, 256), dropout: float = 0.2):
         super().__init__()
 
-        self.in_channels = prev_pages_to_append + 1 + pages_to_append
+        self.in_channels = (prev_pages_to_append + 1 + pages_to_append) * 2
 
         # ⚖️ Medium complexity CNN
         self.conv_block = nn.Sequential(
@@ -36,7 +36,7 @@ class CNNModel(nn.Module):
 
         # 💡 Smaller MLP head
         self.fc1 = nn.Linear(self.flattened_dim, 64)
-        self.fc2 = nn.Linear(64, prev_pages_to_append + 1 + pages_to_append)
+        self.fc2 = nn.Linear(64, 1)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -44,4 +44,4 @@ class CNNModel(nn.Module):
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        return self.fc2(x)  # (B, 3)
+        return self.fc2(x)  # (B, 1)

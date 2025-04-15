@@ -1,12 +1,10 @@
 import torch.nn as nn
 from transformers import AutoModel, AutoConfig
 
-from config.settings import prev_pages_to_append, pages_to_append
-
 
 class ReaderModel(nn.Module):
     def __init__(
-        self, model_name: str = "distilbert-base-uncased", dropout: float = 0.25
+        self, model_name: str = "distilbert-base-uncased", dropout: float = 0.2
     ):
         super(ReaderModel, self).__init__()
         self.config = AutoConfig.from_pretrained(model_name)
@@ -14,9 +12,7 @@ class ReaderModel(nn.Module):
         self.backbone.gradient_checkpointing_enable()
 
         self.dropout = nn.Dropout(dropout)
-        self.classifier = nn.Linear(
-            self.config.hidden_size, prev_pages_to_append + 1 + pages_to_append
-        )
+        self.classifier = nn.Linear(self.config.hidden_size, 1)
 
     def forward(self, input_ids, attention_mask):
         # Get [CLS] representation from DistilBERT (uses first token's output)
@@ -27,5 +23,5 @@ class ReaderModel(nn.Module):
         cls_rep = hidden_state[:, 0]  # shape: (batch_size, hidden_dim)
 
         dropped = self.dropout(cls_rep)
-        logits = self.classifier(dropped)  # shape: (batch_size, 3)
-        return logits
+        logits = self.classifier(dropped)  # shape: (batch_size, 1)
+        return logits  # (B, 1)

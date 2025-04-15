@@ -39,48 +39,44 @@ class FusionModel(nn.Module):
         image_size: tuple[int, int] = (256, 256),
         cnn_model: nn.Module | None = None,
         reader_model: nn.Module | None = None,
-        dropout: float = 0.1,
+        dropout: float = 0.2,
     ):
         super(FusionModel, self).__init__()
         self.reader_model = reader_model or ReaderModel()
         self.cnn_model = cnn_model or CNNModel(image_size=image_size)
 
-        # 🔥 Spicy MLP: (prev + 1 + next) * 2 + 1(distance) input → 8 hidden → prev + 1 + next outputs
+        # 🔥 Spicy MLP: 3 → 8 → 4 -> 1
         self.fusion_mlp = nn.Sequential(
-            nn.Linear((prev_pages_to_append + 1 + pages_to_append) * 2 + 1, 8),
+            nn.Linear(3, 8),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(8, prev_pages_to_append + 1 + pages_to_append),
+            nn.Linear(8, 4),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(4, 1),
         )
 
-    ## FUSED ###
     def forward(
         self, input_ids, attention_mask, cnn_inputs, distance, return_all_logits=False
     ):
-        # LLM logits
-        llm_logits = self.reader_model(
-            input_ids=input_ids, attention_mask=attention_mask
-        )  # (B,)
+        llm_logits = self.reader_model(input_ids, attention_mask)  # (B, 1)
+        cnn_logits = self.cnn_model(cnn_inputs)  # (B, 1)
 
-        # CNN logits
-        cnn_logits = self.cnn_model(cnn_inputs)  # (B,)
-        # print(
-        #     f"[Fusion] LLM: {llm_logits.detach().cpu().numpy()}, CNN: {cnn_logits.detach().cpu().numpy()}"
-        # )
-
-        distance = distance.squeeze(-1)
         if self.training:
-            distance += torch.randn_like(distance) * 0.05
+            distance += torch.randn_like(distance) * 0.01
 
-        # Stack logits → (B, (prev + 1 + next) * 2 + 1(distance))
-        stacked_logits = torch.cat(
-            [llm_logits, cnn_logits, distance.unsqueeze(-1)], dim=1
+        # 🔥 MLP fusion CNN + LLM inputs & other inputs.
+        stack = torch.cat(
+            [
+                torch.tanh(llm_logits),
+                torch.tanh(cnn_logits),
+                distance,
+            ],
+            dim=1,
         )
-
-        # 🔥 MLP fusion
-        fused_logits = self.fusion_mlp(stacked_logits).squeeze(-1)  # (B,)
+        fused_logits = self.fusion_mlp(stack)
 
         if return_all_logits:
             return fused_logits, llm_logits, cnn_logits
 
-        return fused_logits
+        return fused_logits  # (B, 1)

@@ -43,9 +43,9 @@ def main():
     test_loader = DataLoader(
         test_dataset,
         batch_size=20,
-        collate_fn=custom_collate_fn,
+        # collate_fn=custom_collate_fn,
     )
-    criterion = nn.BCEWithLogitsLoss()
+    loss_fn = nn.BCEWithLogitsLoss()
 
     print("[INFO] Starting training...")
     model.train()
@@ -53,21 +53,27 @@ def main():
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
         cnn_input = batch["cnn_input"].to(device)
-        labels = batch["label"].to(device)
+        labels = batch["labels"].to(device)
+        prev_first_page_distance = batch["prev_first_page_distance"].to(device)
 
         with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
-            logits = model(input_ids, attention_mask, cnn_input)
+            # logits = model(input_ids, attention_mask, cnn_input)
+
+            logits = model(
+                input_ids,
+                attention_mask,
+                cnn_input,
+                prev_first_page_distance,
+            )
 
         pred_probs = torch.sigmoid(logits[:2]).detach().cpu().numpy()
         true_labels = labels[:2].cpu().numpy()
-        print(f"[DEBUG] Predictions (first 2): {pred_probs}")
-        print(f"[DEBUG] True labels (first 2): {true_labels}")
+        print(f"[DEBUG] Predictions (first 2): {pred_probs.squeeze(1)}")
+        print(f"[DEBUG] True labels (first 2): {true_labels.squeeze(1)}")
 
-    _, acc, rec, prec, f1, cms = evaluate(model, test_loader, criterion, device)
-    # print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
-
-    # for cm in cms:
-    #     print(f"  Confusion Matrix:\n{cm}\n")
+    _, acc, rec, prec, f1, cm = evaluate(model, test_loader, loss_fn, device)
+    print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
+    print(f"  Confusion Matrix:\n{cm}\n")
 
     for i in range(50):
         verify_alignment(model, tokenizer, test_dataset, i, device)

@@ -227,11 +227,7 @@ Stored in `config/settings.py`
 
 ## 🤝 Credits
 
-Built by davud.
+Built by Davud.
 Model inspired by hybrid NLP + CV document understanding techniques.
 
 MIT Licensed.
-
-```
-
-```
