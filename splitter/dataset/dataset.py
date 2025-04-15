@@ -14,10 +14,26 @@ from config.settings import (
     prev_pages_to_append,
     pages_to_append,
     max_length,
-    doc_length_bins,
-    doc_length_weights,
 )
 from utils.general import clean_text
+
+
+doc_length_bins = [5, 10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500, 800]
+doc_length_weights = [
+    0.228141,
+    0.137013,
+    0.134446,
+    0.100112,
+    0.0884,
+    0.075084,
+    0.114552,
+    0.037061,
+    0.038184,
+    0.020857,
+    0.016044,
+    0.009145,
+    0.000963,
+]
 
 
 class DocumentDataset(Dataset):
@@ -75,11 +91,11 @@ class DocumentDataset(Dataset):
         for _, row in raw_data.iterrows():
             file_id = row["file"]
             page_num = int(row["page"])
-            doc_type = int(row["type"])
             img_filename = f"{file_id}_page_{(page_num - 1):03d}.png"
             img_path = os.path.join(self.image_dir, img_filename)
-            # print(f"page {page_num} - {file_id}")
 
+            doc_type = int(row["type"])
+            # print(f"page {page_num} - {file_id}")
             if doc_type == 0 or doc_type > 6:
                 continue
 
@@ -88,7 +104,7 @@ class DocumentDataset(Dataset):
 
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
-        max_files = 500
+        max_files = 200
         all_files = self.all_data["file"].unique()
 
         if max_files is not None:
@@ -106,7 +122,9 @@ class DocumentDataset(Dataset):
             page_num = int(row["page"])
             if page_num < max_pages_per_doc:
                 sampled_rows.append(row)
+
         self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
+
         # if mode == "train":
         #     sampled_rows = []
         #     for _, row in self.all_data.iterrows():
@@ -122,19 +140,40 @@ class DocumentDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def _load_image_tensor(self, file_id, page_num):
-        img_filename = f"{file_id}_page_{page_num:03d}.png"
+    def _load_image_tensor(self, file: str, page_num: int):
+        """
+        Load an image tensor from disk or return a zero tensor if the image does not exist.
+
+        Parameters
+        ----------
+        file : str
+            File name.
+        page_num : int
+            Zero-based index of the page number to load. The corresponding image
+            file is expected to be named as '{file}_page_{page_num:03d}.png'.
+
+        Returns
+        -------
+        torch.Tensor
+            A transformed image tensor with shape (1, H, W) if the file exists,
+            otherwise a zero tensor of shape `self.image_size` and dtype float16.
+        """
+
+        img_filename = f"{file}_page_{page_num:03d}.png"
         img_path = os.path.join(self.image_dir, img_filename)
 
         if os.path.exists(img_path):
             image = Image.open(img_path)
-            return self.transform(image)  # shape: (1, H, W)
+            image = self.transform(image)
+            # print("image.shape:", image.shape)  # expecting shape: (1, H, W)
+
+            return image
         else:
             return torch.zeros(self.image_size, dtype=torch.float16)
 
     def _get_context_text(self, file_id, center_page, use_random_fallback=True):
         texts = []
-        files = self.all_data["file"].unique().tolist()
+        files = self.all_data["file"].unique().tolist()  # type: ignore
         fallback_pages = {}  # Stores random fallback pages for reproducibility
 
         for offset in range(-self.prev_n, self.next_n + 1):
@@ -411,6 +450,7 @@ class DocumentDataset(Dataset):
                 & (self.all_data["page"] == center_page + offset)
             ]
 
+            row = "[MISSING]"
             if len(match) > 0:
                 row = f"{current_file}_page_{page_idx:03d}.png"
             elif fallback_pages and tag in fallback_pages:
@@ -424,8 +464,6 @@ class DocumentDataset(Dataset):
 
                 page_idx = int(fallback_row["page"]) - 1
                 row = f"{fallback_row["file"]}_page_{page_idx:03d}.png"
-            else:
-                row = f"[MISSING]"
 
             row_data.append(row)
 
@@ -436,14 +474,13 @@ class DocumentDataset(Dataset):
             self.verbose_tag_debug = True
         else:
             self.verbose_tag_debug = False
-        # self.verbose_tag_debug = False
 
         row = self.data.iloc[idx]
         file_id = row["file"]
         page_num = int(row["page"])
         doc_type = int(row["type"])
 
-        # === Build OCR context ===
+        # === Build text context ===
         full_text, fallback_df = self._get_context_text(file_id, page_num)
 
         encoding = self.tokenizer(
@@ -473,7 +510,6 @@ class DocumentDataset(Dataset):
             prev_first_page_distance = page_num - 1
 
         prev_first_page_distance = prev_first_page_distance / max(doc_length_bins)
-
         files_and_pages = self._get_context_row_data(file_id, page_num, fallback_df)
 
         # # debugging
@@ -492,7 +528,6 @@ class DocumentDataset(Dataset):
         #         # print("img shape:", img.shape)  # should be -> (H, W)
         #
         #         dir_path = f"/home/davud/wood-chipper-ai/debug_cnn/{idx}"
-        #         os.makedirs(dir_path, exist_ok=True)
         #
         #         # image_path = f"{dir_path}/{file_id}_page_{page_num + offset}.png"
         #         image_path = f"{dir_path}/{i}.png"
@@ -500,6 +535,7 @@ class DocumentDataset(Dataset):
         #         img = img.squeeze()  # (1, H, W) -> (H, W)
         #         img = (img * 255).clip(0, 255).astype(np.uint8)
         #         Image.fromarray(img, mode="L").save(image_path)
+        #         os.makedirs(dir_path, exist_ok=True)
 
         return {
             "files_and_pages": files_and_pages,

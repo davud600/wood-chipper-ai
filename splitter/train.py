@@ -27,8 +27,8 @@ weight_decay = 0.0005
 patience = 15
 factor = 0.5
 epochs = 15
-log_steps = 10
-eval_steps = 200
+log_steps = 50
+eval_steps = 100
 cnn_warmup_steps = 100
 llm_warmup_steps = 100
 
@@ -54,26 +54,28 @@ def forward_and_get_loss(model, data, loss_fn):
     labels = data["labels"].to(torch.float16)
 
     if isinstance(model, ReaderModel):
-        logits = model(data["input_ids"], data["attention_mask"])
+        logits = model(
+            data["input_ids"], data["attention_mask"], data["prev_first_page_distance"]
+        )
 
-        # # debugging - start
-        # true_labels = labels[:2].cpu().numpy()
-        # pred_probs = torch.sigmoid(logits[:2]).detach().cpu().numpy()
-        # print(f"[DEBUG] True labels (first 2): {true_labels.squeeze(1)}")
-        # print(f"[DEBUG] LLM pred (first 2): {pred_probs.squeeze(1)}")
-        # # debugging - start
+        # debugging - start
+        true_labels = labels[:1].cpu().numpy()
+        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] LLM pred: {pred_probs.squeeze(1)}")
+        # debugging - start
 
         return loss_fn(logits, labels)
 
     elif isinstance(model, CNNModel):
-        logits = model(data["cnn_input"])
+        logits = model(data["cnn_input"], data["prev_first_page_distance"])
 
-        # # debugging - start
-        # true_labels = labels[:2].cpu().numpy()
-        # pred_probs = torch.sigmoid(logits[:2]).detach().cpu().numpy()
-        # print(f"[DEBUG] True labels (first 2): {true_labels.squeeze(1)}")
-        # print(f"[DEBUG] CNN pred (first 2): {pred_probs.squeeze(1)}")
-        # # debugging - start
+        # debugging - start
+        true_labels = labels[:1].cpu().numpy()
+        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] CNN pred: {pred_probs.squeeze(1)}")
+        # debugging - start
 
         return loss_fn(logits, labels)
 
@@ -93,16 +95,16 @@ def forward_and_get_loss(model, data, loss_fn):
         alpha = 0.5
         loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
 
-        # # debugging - start
-        # true_labels = labels[:2].cpu().numpy()
-        # fusion_pred_probs = torch.sigmoid(fused_logits[:2]).detach().cpu().numpy()
-        # cnn_pred_probs = torch.sigmoid(cnn_logits[:2]).detach().cpu().numpy()
-        # llm_pred_probs = torch.sigmoid(llm_logits[:2]).detach().cpu().numpy()
-        # print(f"[DEBUG] True labels (first 2): {true_labels.squeeze(1)}")
-        # print(f"[DEBUG] Fusion pred (first 2): {fusion_pred_probs.squeeze(1)}")
-        # print(f"[DEBUG] CNN pred (first 2): {cnn_pred_probs.squeeze(1)}")
-        # print(f"[DEBUG] LLM pred (first 2): {llm_pred_probs.squeeze(1)}")
-        # # debugging - start
+        # debugging - start
+        true_labels = labels[:1].cpu().numpy()
+        fusion_pred_probs = torch.sigmoid(fused_logits[:1]).detach().cpu().numpy()
+        cnn_pred_probs = torch.sigmoid(cnn_logits[:1]).detach().cpu().numpy()
+        llm_pred_probs = torch.sigmoid(llm_logits[:1]).detach().cpu().numpy()
+        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] Fusion pred: {fusion_pred_probs.squeeze(1)}")
+        print(f"[DEBUG] CNN pred: {cnn_pred_probs.squeeze(1)}")
+        print(f"[DEBUG] LLM pred: {llm_pred_probs.squeeze(1)}")
+        # debugging - start
 
         return loss
 
@@ -133,7 +135,7 @@ def train_loop(
     )
     test_loader = DataLoader(test_dataset, batch_size=testing_mini_batch_size)
 
-    pos_weight = torch.tensor([(N0 / N1) ** 0.25], dtype=torch.float16).to(device)
+    pos_weight = torch.tensor([(N0 / N1) ** 0.5], dtype=torch.float16).to(device)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay
@@ -156,7 +158,8 @@ def train_loop(
 
     print("[INFO] Starting training...")
     step = 0
-    best_f1 = 100
+    best_f1 = 0
+
     for epoch in range(epochs):
         model.train()
 
@@ -223,9 +226,9 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
     model = FusionModel(image_size=image_output_size).to(device)
-    # model.load_state_dict(
-    #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
-    # )
+    model.load_state_dict(
+        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+    )
 
     print("[training]")
     train_dataset = DocumentDataset(

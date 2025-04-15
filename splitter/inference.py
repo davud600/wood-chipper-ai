@@ -83,8 +83,8 @@ def is_first_page(
         max_length=max_length,
         return_tensors="pt",
     )
-    input_ids = encoding["input_ids"].to("cuda")
-    attention_mask = encoding["attention_mask"].to("cuda")
+    input_ids = encoding["input_ids"].to("cuda")  # type: ignore
+    attention_mask = encoding["attention_mask"].to("cuda")  # type: ignore
     distance = prev_first_page_distance / max(doc_length_bins)
     distance = torch.tensor([distance], dtype=torch.float16).to("cuda")
 

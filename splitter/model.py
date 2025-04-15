@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-from config.settings import pages_to_append, prev_pages_to_append
 from .models.llm_model import ReaderModel
 from .models.cnn_model import CNNModel
 
@@ -44,36 +43,50 @@ class FusionModel(nn.Module):
         super(FusionModel, self).__init__()
         self.reader_model = reader_model or ReaderModel()
         self.cnn_model = cnn_model or CNNModel(image_size=image_size)
-
-        # 🔥 Spicy MLP: 3 → 8 → 4 -> 1
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(3, 8),
+            nn.Linear(6, 32),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(8, 4),
+            nn.Linear(32, 16),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(4, 1),
+            nn.Linear(16, 1),
         )
 
     def forward(
         self, input_ids, attention_mask, cnn_inputs, distance, return_all_logits=False
     ):
-        llm_logits = self.reader_model(input_ids, attention_mask)  # (B, 1)
-        cnn_logits = self.cnn_model(cnn_inputs)  # (B, 1)
+        llm_logits = self.reader_model(input_ids, attention_mask, distance)  # (B, 1)
+        cnn_logits = self.cnn_model(cnn_inputs, distance)  # (B, 1)
 
         if self.training:
-            distance += torch.randn_like(distance) * 0.01
+            distance += torch.randn_like(distance) * 0.001
 
         # 🔥 MLP fusion CNN + LLM inputs & other inputs.
+        cnn = torch.sigmoid(cnn_logits)
+        llm = torch.sigmoid(llm_logits)
+        abs_diff = abs(cnn - llm)
         stack = torch.cat(
             [
-                torch.tanh(llm_logits),
-                torch.tanh(cnn_logits),
+                cnn_logits,
+                llm_logits,
+                cnn,
+                llm,
+                abs_diff,
                 distance,
             ],
             dim=1,
         )
+
+        # stack = torch.cat(
+        #     [
+        #         torch.tanh(llm_logits),
+        #         torch.tanh(cnn_logits),
+        #         distance,
+        #     ],
+        #     dim=1,
+        # )
+
         fused_logits = self.fusion_mlp(stack)
 
         if return_all_logits:
