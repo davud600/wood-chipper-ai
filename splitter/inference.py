@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from transformers import PreTrainedTokenizer
     from .model import FusionModel
 
+
+from .config import device
 from config.settings import max_length, image_output_size, doc_length_bins
 
 
@@ -74,7 +76,7 @@ def is_first_page(
         tensor_images.append(tensor_img)
 
     cnn_input = torch.cat(tensor_images, dim=0)
-    cnn_input = cnn_input.unsqueeze(0).to(torch.float16).to("cuda")
+    cnn_input = cnn_input.unsqueeze(0).to(torch.float16).to(device)
 
     encoding = tokenizer(
         content,

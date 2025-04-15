@@ -14,21 +14,29 @@ class ReaderModel(nn.Module):
         self.backbone.gradient_checkpointing_enable()
 
         self.dropout = nn.Dropout(dropout)
-        # self.classifier = nn.Linear(self.config.hidden_size + 1, 1)
         self.classifier = nn.Linear(self.config.hidden_size, 1)
 
-    def forward(self, input_ids, attention_mask, distance):
+    def forward(self, data, loss_fn=None):
         # Get [CLS] representation from DistilBERT (uses first token's output)
-        outputs = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_state = (
-            outputs.last_hidden_state
-        )  # shape: (batch_size, seq_len, hidden_dim)
-        cls_rep = hidden_state[:, 0]  # shape: (batch_size, hidden_dim)
+        outputs = self.backbone(
+            input_ids=data["input_ids"], attention_mask=data["attention_mask"]
+        )
+        hidden_state = outputs.last_hidden_state  # shape: (b, seq_len, hidden_dim)
+        cls_rep = hidden_state[:, 0]  # shape: (b, hidden_dim)
 
-        # x = torch.cat([cls_rep, distance], dim=1)
         x = torch.cat([cls_rep], dim=1)
 
         dropped = self.dropout(x)
-        logits = self.classifier(dropped)  # shape: (batch_size, 1)
+        logits = self.classifier(dropped)  # (b, 1)
 
-        return logits  # (B, 1)
+        # debugging - start
+        true_labels = data["labels"][:1].cpu().numpy()
+        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] LLM pred: {pred_probs.squeeze(1)}")
+        # debugging - start
+
+        if loss_fn:
+            return logits, loss_fn(logits, data["labels"])
+
+        return logits

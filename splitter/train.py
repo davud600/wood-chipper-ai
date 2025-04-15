@@ -5,10 +5,21 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from splitter.models.cnn_model import CNNModel
-from splitter.models.llm_model import ReaderModel
-
-from .utils import count_classes, evaluate
+from .config import (
+    device,
+    training_mini_batch_size,
+    testing_mini_batch_size,
+    learning_rate,
+    weight_decay,
+    patience,
+    factor,
+    epochs,
+    log_steps,
+    eval_steps,
+    cnn_warmup_steps,
+    llm_warmup_steps,
+)
+from .utils import count_classes, eval_and_save
 from .model import FusionModel
 from .dataset.dataset import DocumentDataset
 from config.settings import (
@@ -17,112 +28,6 @@ from config.settings import (
     SPLITTER_MODEL_PATH,
     image_output_size,
 )
-
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-training_mini_batch_size = 20
-testing_mini_batch_size = 20
-learning_rate = 0.000075
-weight_decay = 0.0005
-patience = 15
-factor = 0.5
-epochs = 15
-log_steps = 50
-eval_steps = 100
-cnn_warmup_steps = 100
-llm_warmup_steps = 100
-
-
-def eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1):
-    print(f"\n[Eval @ step {step}]")
-    eval_loss, acc, rec, prec, f1, cm = evaluate(model, test_loader, loss_fn, device)
-    scheduler.step(eval_loss)
-
-    print(
-        f"  Loss: {eval_loss:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}"
-    )
-
-    print(f"  Confusion Matrix:\n{cm}\n")
-
-    if f1 > best_f1:
-        best_f1 = f1
-        torch.save(model.state_dict(), SPLITTER_MODEL_PATH)
-        print(f"  ✅ Saved new best model (F1: {f1:.4f})")
-
-
-def forward_and_get_loss(model, data, loss_fn):
-    labels = data["labels"].to(torch.float16)
-
-    if isinstance(model, ReaderModel):
-        logits = model(
-            data["input_ids"], data["attention_mask"], data["prev_first_page_distance"]
-        )
-
-        # debugging - start
-        true_labels = labels[:1].cpu().numpy()
-        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
-        print(f"[DEBUG] LLM pred: {pred_probs.squeeze(1)}")
-        # debugging - start
-
-        return loss_fn(logits, labels)
-
-    elif isinstance(model, CNNModel):
-        logits = model(data["cnn_input"], data["prev_first_page_distance"])
-
-        # debugging - start
-        true_labels = labels[:1].cpu().numpy()
-        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
-        print(f"[DEBUG] CNN pred: {pred_probs.squeeze(1)}")
-        # debugging - start
-
-        return loss_fn(logits, labels)
-
-    else:
-        fused_logits, llm_logits, cnn_logits = model(
-            data["input_ids"],
-            data["attention_mask"],
-            data["cnn_input"],
-            data["prev_first_page_distance"],
-            return_all_logits=True,
-        )
-
-        fused_loss = loss_fn(fused_logits, labels)
-        aux_llm_loss = loss_fn(llm_logits, labels)
-        aux_cnn_loss = loss_fn(cnn_logits, labels)
-
-        alpha = 0.5
-        loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
-
-        # debugging - start
-        true_labels = labels[:1].cpu().numpy()
-        fusion_pred_probs = torch.sigmoid(fused_logits[:1]).detach().cpu().numpy()
-        cnn_pred_probs = torch.sigmoid(cnn_logits[:1]).detach().cpu().numpy()
-        llm_pred_probs = torch.sigmoid(llm_logits[:1]).detach().cpu().numpy()
-        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
-        print(f"[DEBUG] Fusion pred: {fusion_pred_probs.squeeze(1)}")
-        print(f"[DEBUG] CNN pred: {cnn_pred_probs.squeeze(1)}")
-        print(f"[DEBUG] LLM pred: {llm_pred_probs.squeeze(1)}")
-        # debugging - start
-
-        return loss
-
-
-def get_data_from_loader(batch):
-    input_ids = batch["input_ids"].to(device)
-    attention_mask = batch["attention_mask"].to(device)
-    cnn_input = batch["cnn_input"].to(device)
-    labels = batch["labels"].to(device)
-    prev_first_page_distance = batch["prev_first_page_distance"].to(device)
-
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "cnn_input": cnn_input,
-        "labels": labels,
-        "prev_first_page_distance": prev_first_page_distance,
-    }
 
 
 def train_loop(
@@ -164,15 +69,12 @@ def train_loop(
         model.train()
 
         for batch in train_loader:
-            data = get_data_from_loader(batch)
-            step += 1
-
             with torch.amp.autocast_mode.autocast(
                 device_type="cuda", dtype=torch.float16
             ):
                 if step <= cnn_warmup_steps:
                     opt_cnn.zero_grad()
-                    loss = forward_and_get_loss(model.cnn_model, data, loss_fn)
+                    _, loss = model.cnn_model.forward(batch, loss_fn)
                     scaler.scale(loss).backward()
                     scaler.step(opt_cnn)
                     scaler.update()
@@ -184,7 +86,7 @@ def train_loop(
 
                 elif step <= llm_warmup_steps + cnn_warmup_steps:
                     opt_llm.zero_grad()
-                    loss = forward_and_get_loss(model.reader_model, data, loss_fn)
+                    _, loss = model.reader_model.forward(batch, loss_fn)
                     scaler.scale(loss).backward()
                     scaler.step(opt_llm)
                     scaler.update()
@@ -196,7 +98,7 @@ def train_loop(
 
                 else:
                     opt_fusion.zero_grad()
-                    loss = forward_and_get_loss(model, data, loss_fn)
+                    _, loss = model.forward(batch, loss_fn)
                     scaler.scale(loss).backward()
                     scaler.step(opt_fusion)
                     scaler.update()
@@ -206,10 +108,8 @@ def train_loop(
                             f"[STEP {step}] Epoch {epoch+1} | Loss: {loss.item():.4f}"
                         )
 
-                    if step % eval_steps == 0:
-                        eval_and_save(
-                            model, scheduler, step, loss_fn, test_loader, best_f1
-                        )
+                if step % eval_steps == 0:
+                    eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
 
+from ..config import device
 from config.settings import (
     IMAGES_DIR,
     max_chars,
@@ -503,20 +504,20 @@ class DocumentDataset(Dataset):
         labels = labels.half()
 
         if page_num == 1:
-            prev_first_page_distance = random.choices(
-                doc_length_bins, weights=doc_length_weights, k=1
-            )[0]
+            distance = random.choices(doc_length_bins, weights=doc_length_weights, k=1)[
+                0
+            ]
         else:
-            prev_first_page_distance = page_num - 1
+            distance = page_num - 1
 
-        prev_first_page_distance = prev_first_page_distance / max(doc_length_bins)
+        distance = distance / max(doc_length_bins)
         files_and_pages = self._get_context_row_data(file_id, page_num, fallback_df)
 
         # # debugging
         # if idx in self.verbose_indices:
         #     print(f"\n[🔍 DEBUG - Dataset Sample {idx}]")
         #     print(
-        #         f"  File: {file_id}, Page: {page_num}, Labels: {labels}, Distance: {prev_first_page_distance}"
+        #         f"  File: {file_id}, Page: {page_num}, Labels: {labels}, Distance: {distance}"
         #     )
         #     print(f"  Text context:\n  {full_text[:25]!r}...")
         #     print(f"  input_ids[:10]: {input_ids[:10].tolist()}")
@@ -539,12 +540,10 @@ class DocumentDataset(Dataset):
 
         return {
             "files_and_pages": files_and_pages,
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "cnn_input": cnn_input,
-            "labels": labels,
-            "doc_type": torch.tensor(doc_type, dtype=torch.int),
-            "prev_first_page_distance": torch.tensor(
-                [prev_first_page_distance], dtype=torch.float16
-            ),
+            "input_ids": input_ids.to(device),
+            "attention_mask": attention_mask.to(device),
+            "cnn_input": cnn_input.to(device),
+            "labels": labels.to(device),
+            "doc_type": torch.tensor(doc_type, dtype=torch.int).to(device),
+            "distance": torch.tensor([distance], dtype=torch.float16).to(device),
         }

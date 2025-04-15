@@ -35,14 +35,23 @@ class CNNModel(nn.Module):
         self.fc2 = nn.Linear(64, 1)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, distance):
-        x = self.conv_block(x)
+    def forward(self, data, loss_fn=None):
+        x = self.conv_block(data["cnn_input"])
         x = x.view(x.size(0), -1)
-
-        # x = torch.cat([x, distance], dim=1)
         x = torch.cat([x], dim=1)
 
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
+        logits = self.fc2(x)  # (b, 1)
 
-        return self.fc2(x)  # (B, 1)
+        # debugging - start
+        true_labels = data["labels"][:1].cpu().numpy()
+        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] CNN pred: {pred_probs.squeeze(1)}")
+        # debugging - start
+
+        if loss_fn:
+            return logits, loss_fn(logits, data["labels"])
+
+        return logits

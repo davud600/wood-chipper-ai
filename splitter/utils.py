@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 from sklearn.metrics import (
@@ -9,7 +8,32 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
+from splitter.models.cnn_model import CNNModel
+
+from .config import device
+from .model import FusionModel
 from .dataset.dataset import DocumentDataset
+from config.settings import SPLITTER_MODEL_PATH
+
+
+def eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1):
+    print(f"\n[Eval @ step {step}]")
+    eval_loss, acc, rec, prec, f1, cm = evaluate(model, test_loader, loss_fn)
+    scheduler.step(eval_loss)
+    print(
+        f"  Loss: {eval_loss:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}"
+    )
+    print(f"  Confusion Matrix:\n{cm}\n")
+
+    if f1 > best_f1:
+        name = "fused" if isinstance(model, FusionModel) else "cnn"
+        name = "cnn" if isinstance(model, CNNModel) else "llm"
+        best_f1 = f1
+        torch.save(
+            model.state_dict(),
+            f"{SPLITTER_MODEL_PATH}_{name}",
+        )
+        print(f"  ✅ Saved new best model (F1: {f1:.4f})")
 
 
 def count_classes(dataset: DocumentDataset) -> tuple[int, int]:
@@ -36,7 +60,7 @@ def count_classes(dataset: DocumentDataset) -> tuple[int, int]:
     return first_pages, non_first_pages
 
 
-def evaluate(model, dataloader, criterion, device):
+def evaluate(model, dataloader, loss_fn):
     """
     Evaluates the model on the provided dataset.
 
@@ -74,21 +98,12 @@ def evaluate(model, dataloader, criterion, device):
 
     with torch.no_grad():
         for batch in dataloader:
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch["attention_mask"].to(device)
-            cnn_input = batch["cnn_input"].to(device)
-            labels = batch["labels"].to(device)
-            prev_first_page_distance = batch["prev_first_page_distance"].to(device)
-
-            logits = model(
-                input_ids, attention_mask, cnn_input, prev_first_page_distance
-            )
-            loss = criterion(logits, labels.to(torch.float16))
+            logits, loss = model.forward(batch, loss_fn)
             total_loss += loss.item()
 
             preds = (torch.sigmoid(logits) > 0.5).long()
             all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+            all_labels.extend(batch["labels"].cpu().numpy())
 
     acc = accuracy_score(all_labels, all_preds)
     rec = recall_score(all_labels, all_preds, zero_division=0.0)  # type: ignore
@@ -99,9 +114,7 @@ def evaluate(model, dataloader, criterion, device):
     return total_loss / len(dataloader), acc, rec, prec, f1, cm
 
 
-def verify_alignment(
-    model, tokenizer, dataset: DocumentDataset, idx: int, device: torch.device
-):
+def verify_alignment(model, tokenizer, dataset: DocumentDataset, idx: int):
     """
     Debugs a single data sample to verify model alignment.
 

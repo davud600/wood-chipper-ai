@@ -53,14 +53,13 @@ class FusionModel(nn.Module):
             nn.Linear(16, 1),
         )
 
-    def forward(
-        self, input_ids, attention_mask, cnn_inputs, distance, return_all_logits=False
-    ):
-        llm_logits = self.reader_model(input_ids, attention_mask, distance)  # (B, 1)
-        cnn_logits = self.cnn_model(cnn_inputs, distance)  # (B, 1)
+    def forward(self, data, loss_fn=None):
+        llm_logits = self.reader_model(data)  # (B, 1)
+        cnn_logits = self.cnn_model(data)  # (B, 1)
 
+        distance = data["distance"]
         if self.training:
-            distance += torch.randn_like(distance) * 0.001
+            distance += torch.randn_like(data["distance"]) * 0.001
 
         # 🔥 MLP fusion CNN + LLM inputs & other inputs.
         cnn = torch.sigmoid(cnn_logits)
@@ -77,19 +76,20 @@ class FusionModel(nn.Module):
             ],
             dim=1,
         )
+        logits = self.fusion_mlp(stack)
 
-        # stack = torch.cat(
-        #     [
-        #         torch.tanh(llm_logits),
-        #         torch.tanh(cnn_logits),
-        #         distance,
-        #     ],
-        #     dim=1,
-        # )
+        # debugging - start
+        true_labels = data["labels"][:1].cpu().numpy()
+        fusion_pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        cnn_pred_probs = torch.sigmoid(cnn_logits[:1]).detach().cpu().numpy()
+        llm_pred_probs = torch.sigmoid(llm_logits[:1]).detach().cpu().numpy()
+        print(f"[DEBUG] True labels: {true_labels.squeeze(1)}")
+        print(f"[DEBUG] Fusion pred: {fusion_pred_probs.squeeze(1)}")
+        print(f"[DEBUG] CNN pred: {cnn_pred_probs.squeeze(1)}")
+        print(f"[DEBUG] LLM pred: {llm_pred_probs.squeeze(1)}")
+        # debugging - start
 
-        fused_logits = self.fusion_mlp(stack)
+        if loss_fn:
+            return logits, loss_fn(logits, data["labels"])
 
-        if return_all_logits:
-            return fused_logits, llm_logits, cnn_logits
-
-        return fused_logits  # (B, 1)
+        return logits  # (B, 1)
