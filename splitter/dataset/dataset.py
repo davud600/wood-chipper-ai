@@ -95,10 +95,10 @@ class DocumentDataset(Dataset):
             img_filename = f"{file_id}_page_{(page_num - 1):03d}.png"
             img_path = os.path.join(self.image_dir, img_filename)
 
-            # doc_type = int(row["type"])
+            doc_type = int(row["type"])
+            if doc_type == 0 or doc_type > 6:
+                continue
             # print(f"page {page_num} - {file_id}")
-            # if doc_type == 0 or doc_type > 6:
-            #     continue
 
             if os.path.exists(img_path):
                 valid_rows.append(row)

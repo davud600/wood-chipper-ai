@@ -31,8 +31,9 @@ class ReaderModel(nn.Module):
 
         # debug - start
         pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        print(f"[DEBUG] True labels: {data['labels'].squeeze(1)[0]}")
-        print(f"[DEBUG] LLM pred: {pred_probs.squeeze(1)}")
+        print(
+            f"[DEBUG LLM] label: {data['labels'].squeeze(1)[0]} - pred: {pred_probs.squeeze(1)[0]}"
+        )
         # debug - start
 
         if loss_fn:

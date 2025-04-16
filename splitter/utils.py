@@ -31,7 +31,7 @@ def eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1):
         best_f1 = f1
         torch.save(
             model.state_dict(),
-            f"{SPLITTER_MODEL_PATH}_{name}",
+            f"{SPLITTER_MODEL_PATH.replace('.pth', '')}_{name}.pth",
         )
         print(f"  ✅ Saved new best model (F1: {f1:.4f})")
 

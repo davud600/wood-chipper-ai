@@ -93,6 +93,16 @@ def train_loop(
                             f"[CNN Warmup] [STEP {step}] Epoch {epoch+1} | Loss: {loss.item():.4f}"
                         )
 
+                    if step % eval_steps == 0:
+                        eval_and_save(
+                            model.cnn_model,
+                            scheduler,
+                            step,
+                            loss_fn,
+                            test_loader,
+                            best_f1,
+                        )
+
                 elif step <= llm_warmup_steps + cnn_warmup_steps:
                     opt_llm.zero_grad()
                     _, loss = model.reader_model.forward(batch, loss_fn)
@@ -103,6 +113,16 @@ def train_loop(
                     if step % log_steps == 0:
                         print(
                             f"[LLM Warmup] [STEP {step}] Epoch {epoch+1} | Loss: {loss.item():.4f}"
+                        )
+
+                    if step % eval_steps == 0:
+                        eval_and_save(
+                            model.reader_model,
+                            scheduler,
+                            step,
+                            loss_fn,
+                            test_loader,
+                            best_f1,
                         )
 
                 else:
@@ -117,8 +137,10 @@ def train_loop(
                             f"[STEP {step}] Epoch {epoch+1} | Loss: {loss.item():.4f}"
                         )
 
-                if step % eval_steps == 0:
-                    eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1)
+                    if step % eval_steps == 0:
+                        eval_and_save(
+                            model, scheduler, step, loss_fn, test_loader, best_f1
+                        )
 
 
 if __name__ == "__main__":
