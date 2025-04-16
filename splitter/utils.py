@@ -35,6 +35,8 @@ def eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1):
         )
         print(f"  ✅ Saved new best model (F1: {f1:.4f})")
 
+    return f1
+
 
 def count_classes(dataset: DocumentDataset) -> tuple[int, int]:
     """

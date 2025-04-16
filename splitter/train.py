@@ -34,11 +34,11 @@ def train_loop(
     train_dataset, test_dataset, N0, N1, model, cnn_warmup_steps, llm_warmup_steps
 ):
     train_loader = DataLoader(
-        train_dataset,
-        batch_size=training_mini_batch_size,
-        shuffle=True,
+        train_dataset, batch_size=training_mini_batch_size, shuffle=True, num_workers=6
     )
-    test_loader = DataLoader(test_dataset, batch_size=testing_mini_batch_size)
+    test_loader = DataLoader(
+        test_dataset, batch_size=testing_mini_batch_size, num_workers=6
+    )
 
     # debug - start
     batch = next(iter(train_loader))
@@ -47,7 +47,7 @@ def train_loop(
             print(f"[check] batch[{k}] on: {v.device}")
     # debug - end
 
-    pos_weight = torch.tensor([(N0 / N1) ** 0.5], dtype=torch.float16).to(device)
+    pos_weight = torch.tensor([(N0 / N1) ** 0.3], dtype=torch.float16).to(device)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay

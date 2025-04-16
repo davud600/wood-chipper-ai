@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from .config import device
 from .models.llm_model import ReaderModel
 from .models.cnn_model import CNNModel
 
@@ -72,7 +73,7 @@ class FusionModel(nn.Module):
                 cnn,
                 llm,
                 abs_diff,
-                distance,
+                distance.to(device),
             ],
             dim=1,
         )
@@ -86,6 +87,6 @@ class FusionModel(nn.Module):
         # debug - end
 
         if loss_fn:
-            return logits, loss_fn(logits, data["labels"])
+            return logits, loss_fn(logits, data["labels"].to(device))
 
         return logits  # (B, 1)

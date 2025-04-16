@@ -2,6 +2,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 
+from ..config import device
 from config.settings import prev_pages_to_append, pages_to_append
 
 
@@ -36,8 +37,7 @@ class CNNModel(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, data, loss_fn=None):
-
-        x = self.conv_block(data["cnn_input"])
+        x = self.conv_block(data["cnn_input"].to(device))
         x = x.view(x.size(0), -1)
         x = torch.cat([x], dim=1)
 
@@ -53,6 +53,6 @@ class CNNModel(nn.Module):
         # debug - end
 
         if loss_fn:
-            return logits, loss_fn(logits, data["labels"])
+            return logits, loss_fn(logits, data["labels"].to(device))
 
         return logits

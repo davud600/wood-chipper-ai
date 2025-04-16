@@ -542,10 +542,19 @@ class DocumentDataset(Dataset):
 
         return {
             "files_and_pages": files_and_pages,
-            "input_ids": input_ids.to(device),
-            "attention_mask": attention_mask.to(device),
-            "cnn_input": cnn_input.to(device),
-            "labels": labels.to(device),
-            "doc_type": torch.tensor(doc_type, dtype=torch.int).to(device),
-            "distance": torch.tensor([distance], dtype=torch.float16).to(device),
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "cnn_input": cnn_input,
+            "labels": labels,
+            "doc_type": torch.tensor(doc_type, dtype=torch.int),
+            "distance": torch.tensor([distance], dtype=torch.float16),
         }
+        # return {
+        #     "files_and_pages": files_and_pages,
+        #     "input_ids": input_ids.to(device),
+        #     "attention_mask": attention_mask.to(device),
+        #     "cnn_input": cnn_input.to(device),
+        #     "labels": labels.to(device),
+        #     "doc_type": torch.tensor(doc_type, dtype=torch.int).to(device),
+        #     "distance": torch.tensor([distance], dtype=torch.float16).to(device),
+        # }

@@ -3,6 +3,8 @@ from transformers import AutoModel, AutoConfig
 import torch.nn as nn
 import torch
 
+from ..config import device
+
 
 class ReaderModel(nn.Module):
     def __init__(
@@ -19,7 +21,8 @@ class ReaderModel(nn.Module):
     def forward(self, data, loss_fn=None):
         # Get [CLS] representation from DistilBERT (uses first token's output)
         outputs = self.backbone(
-            input_ids=data["input_ids"], attention_mask=data["attention_mask"]
+            input_ids=data["input_ids"].to(device),
+            attention_mask=data["attention_mask"].to(device),
         )
         hidden_state = outputs.last_hidden_state  # shape: (b, seq_len, hidden_dim)
         cls_rep = hidden_state[:, 0]  # shape: (b, hidden_dim)
@@ -37,6 +40,6 @@ class ReaderModel(nn.Module):
         # debug - start
 
         if loss_fn:
-            return logits, loss_fn(logits, data["labels"])
+            return logits, loss_fn(logits, data["labels"].to(device))
 
         return logits
