@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch
 
 from ..config import device
+from ..utils import init_weights
 
 
 class ReaderModel(nn.Module):
@@ -17,6 +18,7 @@ class ReaderModel(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(self.config.hidden_size, 1)
+        self.apply(init_weights)
 
     def forward(self, data, loss_fn=None):
         # Get [CLS] representation from DistilBERT (uses first token's output)
@@ -32,12 +34,12 @@ class ReaderModel(nn.Module):
         dropped = self.dropout(x)
         logits = self.classifier(dropped)  # (b, 1)
 
-        # debug - start
-        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        print(
-            f"[DEBUG LLM] label: {data['labels'].squeeze(1)[0]} - pred: {pred_probs.squeeze(1)[0]}"
-        )
-        # debug - start
+        # # debug - start
+        # pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        # print(
+        #     f"[DEBUG LLM] label: {data['labels'].squeeze(1)[0]} - pred: {pred_probs.squeeze(1)[0]}"
+        # )
+        # # debug - start
 
         if loss_fn:
             return logits, loss_fn(logits, data["labels"].to(device))

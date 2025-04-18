@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import torch.nn.init as init
 
 from sklearn.metrics import (
     f1_score,
@@ -8,34 +10,20 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
-from splitter.models.cnn_model import CNNModel
-
 from .config import device
-from .model import FusionModel
 from .dataset.dataset import DocumentDataset
-from config.settings import SPLITTER_MODEL_PATH
 
 
-def eval_and_save(model, scheduler, step, loss_fn, test_loader, best_f1):
-    print(f"\n[Eval @ step {step}]")
-    eval_loss, acc, rec, prec, f1, cm = evaluate(model, test_loader, loss_fn)
-    scheduler.step(eval_loss)
-    print(
-        f"  Loss: {eval_loss:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}"
-    )
-    print(f"  Confusion Matrix:\n{cm}\n")
-
-    if f1 > best_f1:
-        name = "fused" if isinstance(model, FusionModel) else "cnn"
-        name = "cnn" if isinstance(model, CNNModel) else "llm"
-        best_f1 = f1
-        torch.save(
-            model.state_dict(),
-            f"{SPLITTER_MODEL_PATH.replace('.pth', '')}_{name}.pth",
-        )
-        print(f"  ✅ Saved new best model (F1: {f1:.4f})")
-
-    return f1
+def init_weights(module):
+    # Xavier for Linear, Kaiming for Conv2d (ReLU)
+    if isinstance(module, nn.Linear):
+        init.xavier_uniform_(module.weight)
+        if module.bias is not None:
+            init.zeros_(module.bias)
+    elif isinstance(module, nn.Conv2d):
+        init.kaiming_uniform_(module.weight, nonlinearity="relu")
+        if module.bias is not None:
+            init.zeros_(module.bias)
 
 
 def count_classes(dataset: DocumentDataset) -> tuple[int, int]:
@@ -100,12 +88,15 @@ def evaluate(model, dataloader, loss_fn):
 
     with torch.no_grad():
         for batch in dataloader:
-            logits, loss = model.forward(batch, loss_fn)
-            total_loss += loss.item()
+            with torch.amp.autocast_mode.autocast(
+                device_type="cuda", dtype=torch.float16
+            ):
+                logits, loss = model.forward(batch, loss_fn)
+                total_loss += loss.item()
 
-            preds = (torch.sigmoid(logits) > 0.5).long()
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(batch["labels"].cpu().numpy())
+                preds = (torch.sigmoid(logits) > 0.5).long()
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(batch["labels"].cpu().numpy())
 
     acc = accuracy_score(all_labels, all_preds)
     rec = recall_score(all_labels, all_preds, zero_division=0.0)  # type: ignore

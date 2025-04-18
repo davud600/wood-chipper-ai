@@ -159,7 +159,7 @@ def process_page(
         The fusion model that combines LLM and CNN outputs to classify first pages.
 
     page : int
-        Current page number being evaluated.
+        Current page number being evaluated (0-based).
 
     prev_pages : List[int]
         Page numbers used as backward context.
@@ -189,8 +189,12 @@ def process_page(
         next_content = get_page_content(document_context, page)
         content_batch += f"<next_page_{i + 1}>{next_content[:max_chars["next_page"]]}</next_page_{i + 1}>"
 
-    # inference if not last page of doc.
+    # inference if not last or first page of doc.
     found_first_page, offset = True, 0
+
+    if page == 0:
+        return
+
     if len(next_pages) > 0:
         # # debug: save images to disk.
         # for idx, img in enumerate(images):
@@ -214,11 +218,13 @@ def process_page(
         )
         similarity = Levenshtein.ratio(prev_split_page_content, content)
         if similarity > 0.985:
-            # inference...
-            distance = page - (prev_split_page + 1)
-            found_first_page, offset = is_first_page(
-                tokenizer, model, content_batch, image_batch, distance
-            )
+            return
+
+        # inference...
+        distance = page - (prev_split_page + 1)
+        found_first_page, offset = is_first_page(
+            tokenizer, model, content_batch, image_batch, distance
+        )
 
     # if first page call func.
     if found_first_page:

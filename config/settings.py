@@ -20,8 +20,8 @@ inf_workers = 1  # this can not be bigger than 1.
 ocr_batch_size = 2
 pages_to_skip_after_finding_first_page = 2
 # image_output_size = (1000, 800)  # upscale this when processing dataset.
-# image_output_size = (1024, 1024)
-image_output_size = (512, 512)
+image_output_size = (1024, 1024)
+# image_output_size = (512, 512)
 
 
 max_chars = {
@@ -62,9 +62,8 @@ TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
 # SPLITTER_MODEL_PATH = os.path.join(
 #     project_root, "data", "models", "splitter_single_class_all_data.pth"
 # )
-SPLITTER_MODEL_PATH = os.path.join(
-    project_root, "data", "models", "splitter_single_class_all_data_2.pth"
-)
+SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter_381.pth")
+SPLITTER_MODEL_DIR = os.path.join(project_root, "data", "models")
 
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")
 SPLIT_DOCUMENTS_DIR = os.path.join(project_root, "data", "split_documents")

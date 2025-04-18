@@ -26,7 +26,11 @@ def main():
     model = FusionModel(image_size=image_output_size).to(device)
     model.eval()
     model.load_state_dict(
-        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+        torch.load(
+            f"{SPLITTER_MODEL_PATH.replace('.pth', '')}_0.7927272727272727.pth",
+            weights_only=False,
+            map_location="cuda",
+        )
     )
 
     print("[TESTING]")
@@ -44,8 +48,7 @@ def main():
     )
     loss_fn = nn.BCEWithLogitsLoss()
 
-    print("[INFO] Starting training...")
-    model.train()
+    print("[INFO] Starting testing...")
     for batch in test_loader:
         with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
             logits = model(batch)
@@ -59,8 +62,8 @@ def main():
     print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
     print(f"  Confusion Matrix:\n{cm}\n")
 
-    for i in range(50):
-        verify_alignment(model, tokenizer, test_dataset, i)
+    # for i in range(50):
+    #     verify_alignment(model, tokenizer, test_dataset, i)
 
 
 if __name__ == "__main__":

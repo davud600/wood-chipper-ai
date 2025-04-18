@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 
 from ..config import device
+from ..utils import init_weights
 from config.settings import prev_pages_to_append, pages_to_append
 
 
@@ -35,6 +36,7 @@ class CNNModel(nn.Module):
         self.fc1 = nn.Linear(self.flattened_dim, 64)
         self.fc2 = nn.Linear(64, 1)
         self.dropout = nn.Dropout(dropout)
+        self.apply(init_weights)
 
     def forward(self, data, loss_fn=None):
         x = self.conv_block(data["cnn_input"].to(device))
@@ -45,12 +47,12 @@ class CNNModel(nn.Module):
         x = self.dropout(x)
         logits = self.fc2(x)  # (b, 1)
 
-        # debug - start
-        pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        print(
-            f"[DEBUG CNN] label: {data['labels'].squeeze(1)[0]} - pred: {pred_probs.squeeze(1)[0]}"
-        )
-        # debug - end
+        # # debug - start
+        # pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
+        # print(
+        #     f"[DEBUG CNN] label: {data['labels'].squeeze(1)[0]} - pred: {pred_probs.squeeze(1)[0]}"
+        # )
+        # # debug - end
 
         if loss_fn:
             return logits, loss_fn(logits, data["labels"].to(device))
