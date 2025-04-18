@@ -32,7 +32,7 @@ class ReaderModel(nn.Module):
         x = torch.cat([cls_rep], dim=1)
 
         dropped = self.dropout(x)
-        logits = self.classifier(dropped)  # (b, 1)
+        logits = self.classifier(dropped)  # (b, 1) or (b, 2)
 
         # # debug - start
         # pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()

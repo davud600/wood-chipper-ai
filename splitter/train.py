@@ -38,7 +38,7 @@ def parse_args():
 
     p.add_argument("--lr", type=float, default=learning_rate)
     p.add_argument("--wd", type=float, default=weight_decay)
-    p.add_argument("--pw_multiplier", type=float, default=0.75)
+    p.add_argument("--pw_multiplier", type=float, default=0.5)
 
     return p.parse_args()
 

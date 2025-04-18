@@ -45,6 +45,7 @@ class CNNModel(nn.Module):
 
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
+
         logits = self.fc2(x)  # (b, 1)
 
         # # debug - start

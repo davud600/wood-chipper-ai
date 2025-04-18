@@ -55,14 +55,20 @@ class FusionModel(nn.Module):
         #     nn.Dropout(dropout),
         #     nn.Linear(2, 1),
         # )
+
         # self.fusion_mlp = nn.Sequential(
         #     nn.Linear(2, 1),
         # )
+
+        # self.fusion_mlp = nn.Sequential(
+        #     nn.Linear(3, 8),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(8, 1),
+        # )
+
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(3, 8),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(8, 1),
+            nn.Linear(3, 1),
         )
 
         self.apply(init_weights)
@@ -101,18 +107,19 @@ class FusionModel(nn.Module):
         if loss_fn:
             labels = data["labels"].to(device)
 
-            return logits, loss_fn(logits, labels)
+            # return logits, loss_fn(logits, labels)
 
             # if warmup:
             #     return logits, loss_fn(logits, labels)
             #
-            # fused_loss = loss_fn(logits, labels)
-            # aux_llm_loss = loss_fn(llm_logits, labels)
-            # aux_cnn_loss = loss_fn(cnn_logits, labels)
-            #
-            # alpha = 0.5
-            # loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
-            #
-            # return logits, loss
+
+            fused_loss = loss_fn(logits, labels)
+            aux_llm_loss = loss_fn(llm_logits, labels)
+            aux_cnn_loss = loss_fn(cnn_logits, labels)
+
+            alpha = 0.75
+            loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
+
+            return logits, loss
 
         return logits  # (B, 1)

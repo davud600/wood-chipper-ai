@@ -95,9 +95,9 @@ class DocumentDataset(Dataset):
             img_filename = f"{file_id}_page_{(page_num - 1):03d}.png"
             img_path = os.path.join(self.image_dir, img_filename)
 
-            doc_type = int(row["type"])
-            if doc_type == 0 or doc_type > 6:
-                continue
+            # doc_type = int(row["type"])
+            # if doc_type != 3:
+            #     continue
             # print(f"page {page_num} - {file_id}")
 
             if os.path.exists(img_path):
@@ -106,7 +106,7 @@ class DocumentDataset(Dataset):
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
         # debug - start
-        max_files = 200
+        max_files = None
         all_files = self.all_data["file"].unique()
         if max_files is not None:
             sampled_files = np.random.choice(  # type: ignore
@@ -118,9 +118,9 @@ class DocumentDataset(Dataset):
             ].reset_index(drop=True)
         # debug - end
 
-        max_pages_per_doc = 10
+        max_pages_per_doc = 7
         sampled_rows = []
-        num_augmented = 5
+        num_augmented = 3
 
         # for _, row in self.all_data.iterrows():
         #     page_num = int(row["page"])
