@@ -2,15 +2,19 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 
+from torchvision import transforms
+
 from ..config import device
 from ..utils import init_weights
 from config.settings import prev_pages_to_append, pages_to_append
 
+target_size = (512, 512)
+
 
 class CNNModel(nn.Module):
-    def __init__(self, image_size=(256, 256), dropout: float = 0.2):
+    def __init__(self, image_size=(1024, 1024), dropout: float = 0.1):
         super().__init__()
-
+        self.title = "cnn"
         self.in_channels = (prev_pages_to_append + 1 + pages_to_append) * 2
         self.conv_block = nn.Sequential(
             nn.Conv2d(self.in_channels, 16, kernel_size=3, stride=1, padding=1),
@@ -28,32 +32,38 @@ class CNNModel(nn.Module):
             nn.Dropout2d(dropout),
         )
 
+        self.transform = transforms.Compose(
+            [
+                # 1) Resize first, so blur kernel is in target pixels
+                transforms.Resize(target_size),
+                # 2) Gaussian blur; tweak kernel_size & sigma to taste
+                transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0)),
+                transforms.Grayscale(num_output_channels=1),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5], std=[0.5]),
+                transforms.ConvertImageDtype(torch.float16),
+            ]
+        )
+
         with torch.no_grad():
             dummy = torch.zeros(1, self.in_channels, *image_size)
             dummy_out = self.conv_block(dummy)
             self.flattened_dim = dummy_out.view(1, -1).shape[1]
 
-        self.fc1 = nn.Linear(self.flattened_dim, 64)
-        self.fc2 = nn.Linear(64, 1)
-        self.dropout = nn.Dropout(dropout)
+        self.classifier = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(32, 1),
+        )
+
         self.apply(init_weights)
 
     def forward(self, data, loss_fn=None):
         x = self.conv_block(data["cnn_input"].to(device))
-        x = x.view(x.size(0), -1)
-        x = torch.cat([x], dim=1)
+        x = F.adaptive_avg_pool2d(x, 1).view(x.size(0), -1)
 
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
-
-        logits = self.fc2(x)  # (b, 1)
-
-        # # debug - start
-        # pred_probs = torch.sigmoid(logits[:1]).detach().cpu().numpy()
-        # print(
-        #     f"[DEBUG CNN] label: {data['labels'].squeeze(1)[0]} - pred: {pred_probs.squeeze(1)[0]}"
-        # )
-        # # debug - end
+        logits = self.classifier(x)  # (b, 1)
 
         if loss_fn:
             return logits, loss_fn(logits, data["labels"].to(device))

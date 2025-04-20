@@ -80,8 +80,9 @@ class DocumentDataset(Dataset):
         self.transform = transforms.Compose(
             [
                 transforms.Grayscale(num_output_channels=1),
-                # transforms.Resize(self.image_size),
+                transforms.Resize(self.image_size),
                 transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5], std=[0.5]),
                 transforms.ConvertImageDtype(torch.float16),
             ]
         )
@@ -92,12 +93,12 @@ class DocumentDataset(Dataset):
         for _, row in raw_data.iterrows():
             file_id = row["file"]
             page_num = int(row["page"])
-            img_filename = f"{file_id}_page_{(page_num - 1):03d}.png"
+            img_filename = f"{file_id}_page_{(page_num - 1):03d}.jpg"
             img_path = os.path.join(self.image_dir, img_filename)
 
-            # doc_type = int(row["type"])
-            # if doc_type != 3:
-            #     continue
+            doc_type = int(row["type"])
+            if doc_type != 3:
+                continue
             # print(f"page {page_num} - {file_id}")
 
             if os.path.exists(img_path):
@@ -105,7 +106,6 @@ class DocumentDataset(Dataset):
 
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
-        # debug - start
         max_files = None
         all_files = self.all_data["file"].unique()
         if max_files is not None:
@@ -116,42 +116,38 @@ class DocumentDataset(Dataset):
             self.all_data = self.all_data[
                 self.all_data["file"].isin(sampled_files)
             ].reset_index(drop=True)
-        # debug - end
 
-        max_pages_per_doc = 7
+        max_pages_per_doc = 20
         sampled_rows = []
-        num_augmented = 3
-
-        # for _, row in self.all_data.iterrows():
-        #     page_num = int(row["page"])
-        #
-        #     if page_num < max_pages_per_doc:
-        #         if page_num == 1 and mode == "train":
-        #             for i in range(num_augmented - 1):
-        #                 sampled_rows.append(row)
-        #
-        #             continue
-        #
-        #         sampled_rows.append(row)
-
+        num_augmented = (
+            3  # num of times to include first page with random prev page in dataset.
+        )
         if mode == "train":
-            sampled_rows = []
             for _, row in self.all_data.iterrows():
                 page_num = int(row["page"])
 
                 if page_num < max_pages_per_doc:
                     if page_num == 1 and mode == "train":
-                        for i in range(num_augmented - 1):
+                        for i in range(num_augmented):
                             sampled_rows.append(row)
 
                         continue
 
                     sampled_rows.append(row)
-            self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
         else:
-            self.data = self.all_data
+            for _, row in self.all_data.iterrows():
+                sampled_rows.append(row)
 
-        # self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
+            # for _, row in self.all_data.iterrows():
+            #     page_num = int(row["page"])
+            #
+            #     if page_num < max_pages_per_doc:
+            #         if page_num == 1 and mode == "train":
+            #             sampled_rows.append(row)
+            #
+            #         sampled_rows.append(row)
+
+        self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
 
         print(f"[INFO] Loaded {len(self.data)} valid rows (with existing images)")
 
@@ -177,7 +173,7 @@ class DocumentDataset(Dataset):
             otherwise a zero tensor of shape `self.image_size` and dtype float16.
         """
 
-        img_filename = f"{file}_page_{page_num:03d}.png"
+        img_filename = f"{file}_page_{page_num:03d}.jpg"
         img_path = os.path.join(self.image_dir, img_filename)
 
         if os.path.exists(img_path):
@@ -300,16 +296,15 @@ class DocumentDataset(Dataset):
                 image_tensor = torch.zeros(self.image_size, dtype=torch.float16)
 
             # 📌 ADD POSITION MASK
-            pos_mask = torch.full_like(image_tensor, 0.2)
+            pos_mask = torch.full_like(image_tensor, 0.1)
             if offset == 0:  # only current page gets 1s
                 pos_mask.fill_(1.0)
 
             # Combine image + mask → (2, H, W)
             combined = torch.stack([image_tensor, pos_mask], dim=0)
 
-            # images.append(combined)
             image_tensor = image_tensor.squeeze(0)  # (H, W)
-            pos_mask = torch.full_like(image_tensor, 0.3)
+            pos_mask = torch.full_like(image_tensor, 0.25)
             if offset == 0:
                 pos_mask.fill_(1.0)
 

@@ -3,15 +3,26 @@ import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
-training_mini_batch_size = 64
-testing_mini_batch_size = 64
-learning_rate = 0.00005
-weight_decay = 0.00001
-patience = 15
-factor = 0.5
+# default values if not specified as args.
+
+training_mini_batch_size = 32
+testing_mini_batch_size = 32
+
+lr_cnn = 0.001
+wd_cnn = 0.0005
+isolated_epochs_cnn = 3
+
+lr_llm = 0.001
+wd_llm = 0.0005
+isolated_epochs_llm = 3
+
+lr_mlp = 0.0001
+wd_mlp = 0.0001
+
 epochs = 10
+pw_multiplier = 1
+patience = 10
+factor = 0.5
+
 log_steps = 10
-eval_steps = 100
-llm_warmup_steps = 0
-cnn_warmup_steps = 0
-mlp_warmup_steps = 0
+eval_steps = 250

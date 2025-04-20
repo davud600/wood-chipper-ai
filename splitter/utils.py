@@ -1,6 +1,12 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.init as init
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .model import FusionModel
 
 from sklearn.metrics import (
     f1_score,
@@ -10,8 +16,60 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
+from config.settings import SPLITTER_MODEL_DIR
 from .config import device
 from .dataset.dataset import DocumentDataset
+
+
+def load_best_weights(model: "FusionModel", session: int, fusion_model: bool = False):
+    """
+    Load the best checkpoints for each sub-model (fusion MLP, CNN, LLM)
+    from the given session directory by selecting the files with the highest F1 score.
+    """
+
+    session_dir = os.path.join(SPLITTER_MODEL_DIR, str(session))
+    if not os.path.isdir(session_dir):
+        raise FileNotFoundError(f"Session directory not found: {session_dir}")
+
+    def find_best_file(name: str) -> str | None:
+        prefix = f"{name}_model_"
+        candidates: list[tuple[float, str]] = []
+
+        for fname in os.listdir(session_dir):
+            if fname.startswith(prefix) and fname.endswith(".pth"):
+                score_str = fname[len(prefix) : -4]  # strip prefix and '.pth'
+
+                try:
+                    score = float(score_str)
+                    candidates.append((score, fname))
+                except ValueError:
+                    continue
+
+        if not candidates:
+            return None
+
+        return max(candidates, key=lambda x: x[0])[1]
+
+    if fusion_model:
+        best_mlp = find_best_file(str(model.title))
+        if best_mlp:
+            path = os.path.join(session_dir, best_mlp)
+            state = torch.load(path, map_location=device)
+            model.load_state_dict(state)
+
+        return
+
+    best_cnn = find_best_file(str(model.cnn_model.title))
+    if best_cnn:
+        path = os.path.join(session_dir, best_cnn)
+        state = torch.load(path, map_location=device)
+        model.cnn_model.load_state_dict(state)
+
+    best_llm = find_best_file(str(model.reader_model.title))
+    if best_llm:
+        path = os.path.join(session_dir, best_llm)
+        state = torch.load(path, map_location=device)
+        model.reader_model.load_state_dict(state)
 
 
 def init_weights(module):
@@ -146,9 +204,9 @@ def verify_alignment(model, tokenizer, dataset: DocumentDataset, idx: int):
         raw_text = tokenizer.decode(input_ids[0], skip_special_tokens=True)
 
         # === 3. Forward pass ===
-        llm_logits = model.reader_model(input_ids, attention_mask)
-        cnn_logits = model.cnn_model(cnn_input)
-        fused_logits = model(input_ids, attention_mask, cnn_input)
+        llm_logits = model.reader_model(sample)
+        cnn_logits = model.cnn_model(sample)
+        fused_logits = model(sample)
         pred_prob = torch.sigmoid(fused_logits).item()
 
         # === 4. Display ===
