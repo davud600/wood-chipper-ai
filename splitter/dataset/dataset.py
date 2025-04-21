@@ -97,8 +97,8 @@ class DocumentDataset(Dataset):
             img_path = os.path.join(self.image_dir, img_filename)
 
             doc_type = int(row["type"])
-            if doc_type != 3:
-                continue
+            # if doc_type != 3:
+            #     continue
             # print(f"page {page_num} - {file_id}")
 
             if os.path.exists(img_path):
@@ -122,6 +122,7 @@ class DocumentDataset(Dataset):
         num_augmented = (
             3  # num of times to include first page with random prev page in dataset.
         )
+
         if mode == "train":
             for _, row in self.all_data.iterrows():
                 page_num = int(row["page"])
@@ -134,10 +135,10 @@ class DocumentDataset(Dataset):
                         continue
 
                     sampled_rows.append(row)
-        else:
-            for _, row in self.all_data.iterrows():
-                sampled_rows.append(row)
 
+            self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
+
+        else:
             # for _, row in self.all_data.iterrows():
             #     page_num = int(row["page"])
             #
@@ -146,8 +147,9 @@ class DocumentDataset(Dataset):
             #             sampled_rows.append(row)
             #
             #         sampled_rows.append(row)
-
-        self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
+            #
+            # self.data = pd.DataFrame(sampled_rows).reset_index(drop=True)
+            self.data = self.all_data
 
         print(f"[INFO] Loaded {len(self.data)} valid rows (with existing images)")
 
@@ -259,7 +261,10 @@ class DocumentDataset(Dataset):
             # === Fallback: pad with empty or dummy ===
             texts.append(f"<{tag}></{tag}>")
 
-        return "".join(texts), fallback_pages
+        return (
+            "<sys>Find if curr page starts a new document</sys>" + "".join(texts),
+            fallback_pages,
+        )
 
     def _get_context_images(self, file_id, center_page, fallback_pages=None):
         images = []

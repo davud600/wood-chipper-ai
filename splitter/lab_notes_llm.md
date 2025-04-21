@@ -10,7 +10,49 @@ num_augmented = 2
 
 ## LLM
 
-### architecture cls -> 32 -> 1
+### cls + mean pooling -> 32 -> 1
+
+#### sys prompt + special tokens (3)
+
+```
+[LLM] [STEP 750] Epoch 7 | Loss: 0.1583 | true: 0 | pred: 0.00 | lr: 1e-06
+  Loss: 0.6521 | F1: 0.7163 | Acc: 0.9357 | Rec: 0.6313 | Prec: 0.8278
+  Confusion Matrix:
+[[1315   26]
+ [  73  125]]
+```
+
+#### system prompt (4)
+
+```
+[LLM] [STEP 1000] Epoch 8 | Loss: 0.0421 | true: 1 | pred: 1.00 | lr: 1e-06
+  Loss: 0.7469 | F1: 0.7413 | Acc: 0.9383 | Rec: 0.7020 | Prec: 0.7853
+  Confusion Matrix:
+[[1335   38]
+ [  59  139]]
+```
+
+#### no system prompt
+
+```
+[LLM] [STEP 1250] Epoch 10 | Loss: 0.2961 | true: 0 | pred: 0.00 | lr: 1e-06
+  Loss: 0.4043 | F1: 0.6998 | Acc: 0.9101 | Rec: 0.8182 | Prec: 0.6113
+  Confusion Matrix:
+[[1245  103]
+ [  36  162]]
+```
+
+### mean pooling -> 32 -> 1
+
+```
+[LLM] [STEP 1000] Epoch 8 | Loss: 0.1022 | true: 1 | pred: 0.97 | lr: 1e-06
+  Loss: 0.5409 | F1: 0.6570 | Acc: 0.9077 | Rec: 0.6904 | Prec: 0.6267
+  Confusion Matrix:
+[[1261   81]
+ [  61  136]]
+```
+
+### cls -> 32 -> 1
 
 ```
 self.classifier = nn.Sequential(
@@ -19,6 +61,14 @@ self.classifier = nn.Sequential(
     nn.Dropout(dropout), # 0.1
     nn.Linear(32, 1),
 )
+```
+
+```
+[LLM] [STEP 1000] Epoch 9 | Loss: 0.8824 | true: 1 | pred: 0.07 | lr: 1e-06
+  Loss: 0.4423 | F1: 0.6323 | Acc: 0.8909 | Rec: 0.7462 | Prec: 0.5485
+  Confusion Matrix:
+[[1249  121]
+ [  50  147]]
 ```
 
 #### lr 0.001 wd 0.001

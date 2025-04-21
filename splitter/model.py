@@ -41,10 +41,11 @@ class FusionModel(nn.Module):
         cnn_model: nn.Module | None = None,
         reader_model: nn.Module | None = None,
         dropout: float = 0.1,
+        tokenizer_len: int | None = None,
     ):
         super(FusionModel, self).__init__()
         self.title = "mlp"
-        self.reader_model = reader_model or ReaderModel()
+        self.reader_model = reader_model or ReaderModel(tokenizer_len=tokenizer_len)
         self.cnn_model = cnn_model or CNNModel(image_size=image_size)
 
         # self.fusion_mlp = nn.Sequential(
