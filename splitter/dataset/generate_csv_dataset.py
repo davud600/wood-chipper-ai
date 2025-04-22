@@ -72,7 +72,6 @@ if __name__ == "__main__":
     type_counters = [0 for _ in DOCUMENT_TYPES]
     open_errors = [0 for _ in DOCUMENT_TYPES]
     no_pages = [0 for _ in DOCUMENT_TYPES]
-    max_count_per_type = 1000
     max_pages_per_doc = 30
 
     with open(
@@ -96,9 +95,6 @@ if __name__ == "__main__":
                 continue
 
             document_type = get_document_type(file)
-            if type_counters[document_type] >= max_count_per_type:
-                continue
-
             if file in training_dataset_files or file in testing_dataset_files:
                 print(f"p-1 skipping already processed: {file}")
                 type_counters[document_type] += 1

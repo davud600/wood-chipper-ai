@@ -1,3 +1,7 @@
+# NOTES
+
+locally running lr finder for distanceless cnn.
+
 # DATASET
 
 ```

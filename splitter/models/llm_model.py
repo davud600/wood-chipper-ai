@@ -23,6 +23,7 @@ class ReaderModel(nn.Module):
             self.backbone.resize_token_embeddings(tokenizer_len)
 
         self.classifier = nn.Sequential(
+            # nn.Linear((self.config.hidden_size * 2) + 1, 32),
             nn.Linear(self.config.hidden_size * 2, 32),
             nn.GELU(),
             nn.Dropout(dropout),
@@ -37,12 +38,16 @@ class ReaderModel(nn.Module):
             attention_mask=data["attention_mask"].to(device),
         )
 
-        # cls_rep = outputs.last_hidden_state[:, 0]
-
         hidden_state = outputs.last_hidden_state
-        # cls_rep = hidden_state.mean(dim=1)
+        cls_rep = torch.cat(
+            [hidden_state[:, 0], hidden_state.mean(dim=1)],
+            dim=-1,
+        )
 
-        cls_rep = torch.cat([hidden_state[:, 0], hidden_state.mean(dim=1)], dim=-1)
+        # cls_rep = torch.cat(
+        #     [hidden_state[:, 0], hidden_state.mean(dim=1), data["distance"].to(device)],
+        #     dim=-1,
+        # )
 
         logits = self.classifier(cls_rep)  # (b, 1)
 

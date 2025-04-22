@@ -18,22 +18,33 @@ from config.settings import (
 from utils.general import clean_text
 
 
-doc_length_bins = [5, 10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500, 800]
-doc_length_weights = [
-    0.228141,
-    0.137013,
-    0.134446,
-    0.100112,
-    0.0884,
-    0.075084,
-    0.114552,
-    0.037061,
-    0.038184,
-    0.020857,
-    0.016044,
-    0.009145,
-    0.000963,
-]
+# doc_length_bins = [5, 10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500, 800]
+# doc_length_weights = [
+#     0.228141,
+#     0.137013,
+#     0.134446,
+#     0.100112,
+#     0.0884,
+#     0.075084,
+#     0.114552,
+#     0.037061,
+#     0.038184,
+#     0.020857,
+#     0.016044,
+#     0.009145,
+#     0.000963,
+# ]
+
+
+def sample_shifted_erlang(
+    shape: int, scale: float, offset: float, integer: bool = True
+):
+    """
+    Draw from Erlang/Gamma(shape, scale) and then add `offset`.
+    The result is always >= offset.
+    """
+    val = random.gammavariate(shape, scale) + offset
+    return int(round(val)) if integer else val
 
 
 class DocumentDataset(Dataset):
@@ -117,10 +128,10 @@ class DocumentDataset(Dataset):
                 self.all_data["file"].isin(sampled_files)
             ].reset_index(drop=True)
 
-        max_pages_per_doc = 20
+        max_pages_per_doc = 30
         sampled_rows = []
         num_augmented = (
-            3  # num of times to include first page with random prev page in dataset.
+            6  # num of times to include first page with random prev page in dataset.
         )
 
         if mode == "train":
@@ -401,14 +412,17 @@ class DocumentDataset(Dataset):
         labels = self._get_context_labels(file_id, page_num, fallback_df)  # (C,)
         labels = labels.half()
 
-        if page_num == 1:
-            distance = random.choices(doc_length_bins, weights=doc_length_weights, k=1)[
-                0
-            ]
-        else:
-            distance = page_num - 1
+        # if page_num == 1:
+        #     distance = random.choices(doc_length_bins, weights=doc_length_weights, k=1)[
+        #         0
+        #     ]
+        # else:
+        #     distance = page_num - 1
+        #
 
-        distance = distance / max(doc_length_bins)
+        distance = sample_shifted_erlang(3, 50, 10)
+
+        distance = distance / 700
         files_and_pages = self._get_context_row_data(file_id, page_num, fallback_df)
 
         return {

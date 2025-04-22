@@ -29,8 +29,8 @@ def split_request(
     None
     """
 
-    print(f"\n#{document_context["document_id"]} downloading source file...")
-    document_context["file_name"] = f"{document_context["document_id"]}.pdf"
+    print(f"\n#{document_context['document_id']} downloading source file...")
+    document_context["file_name"] = f"{document_context['document_id']}.pdf"
     document_context["file_path"] = download_s3_file(
         str(document_context["signed_get_url"]), document_context["file_name"]
     )
@@ -38,7 +38,7 @@ def split_request(
     merged_doc = fitz.open(document_context["file_path"])
     document_pages = len(merged_doc)
     merged_doc.close()
-    print(f"{document_context["file_path"]} pages: {document_pages}")
+    print(f"{document_context['file_path']} pages: {document_pages}")
 
     try:
         process_pages_pipeline(

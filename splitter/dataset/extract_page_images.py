@@ -1,4 +1,3 @@
-import multiprocessing
 import os
 import csv
 import fitz
@@ -54,7 +53,7 @@ def extract_page_images_to_disk(pdf_dir: str, max_pages: int = 30):
                 continue
 
             for page_idx in range(min(len(doc), max_pages)):
-                image_filename = f"{file}_page_{page_idx:03}.png"
+                image_filename = f"{file}_page_{page_idx:03}.jpg"
                 image_path = os.path.join(image_dir, image_filename)
 
                 if os.path.exists(image_path):

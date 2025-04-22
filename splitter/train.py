@@ -61,14 +61,15 @@ def step_model(
     test_loader,
     loss_fn,
     step: int,
-    epoch: int,
+    epoch: float,
 ):
     optimizer.zero_grad()
-    logits, loss = (
-        model(batch, loss_fn)
-        if not isinstance(model, FusionModel)
-        else model(batch, loss_fn, warmup=True)
-    )
+    # logits, loss = (
+    #     model(batch, loss_fn)
+    #     if not isinstance(model, FusionModel)
+    #     else model(batch, loss_fn, warmup=True)
+    # )
+    logits, loss = model(batch, loss_fn)
     scaler.scale(loss).backward()
 
     scaler.unscale_(optimizer)  # ??
@@ -79,7 +80,7 @@ def step_model(
 
     if step % log_steps == 0:
         print(
-            f"[{model.title.upper()}] [STEP {step}] Epoch {epoch+1} | Loss: {loss.item():.4f} | true: {int(batch['labels'][0])} | pred: {torch.sigmoid(logits.squeeze(-1)[0]):.2f} | lr: {optimizer.param_groups[0]['lr']}"
+            f"[{model.title.upper()}] [STEP {step}] Epoch {epoch:.4f} | Loss: {loss.item():.4f} | true: {int(batch['labels'][0])} | pred: {torch.sigmoid(logits.squeeze(-1)[0]):.2f} | lr: {optimizer.param_groups[0]['lr']}"
         )
 
     if step % eval_steps == 0:
@@ -109,18 +110,43 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.training_mini_batch_size,
-        shuffle=False,
-        num_workers=4,
+        shuffle=True,
+        num_workers=8,
     )
     test_loader = DataLoader(
         test_dataset,
         batch_size=args.testing_mini_batch_size,
-        shuffle=False,
-        num_workers=4,
+        shuffle=True,
+        num_workers=8,
     )
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
 
-    opt_mlp = optim.AdamW(model.parameters(), lr=args.lr_mlp, weight_decay=args.wd_mlp)
+    # opt_mlp = optim.AdamW(model.parameters(), lr=args.lr_mlp, weight_decay=args.wd_mlp)
+    opt_mlp = optim.AdamW(
+        [
+            {
+                "params": model.reader_model.backbone.parameters(),
+                "lr": args.lr_llm * 0.0025,
+                "weight_decay": args.wd_llm * 0.0025,
+            },
+            {
+                "params": model.reader_model.classifier.parameters(),
+                "lr": args.lr_llm,
+                "weight_decay": args.wd_llm,
+            },
+            {
+                "params": model.cnn_model.parameters(),
+                "lr": args.lr_cnn,
+                "weight_decay": args.wd_cnn,
+            },
+            {
+                "params": model.fusion_mlp.parameters(),
+                "lr": args.lr_mlp,
+                "weight_decay": args.wd_mlp,
+            },
+        ],
+        weight_decay=args.wd_mlp,
+    )
     sched_mlp = optim.lr_scheduler.ReduceLROnPlateau(
         opt_mlp, patience=patience, factor=factor
     )
@@ -136,8 +162,8 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         [
             {
                 "params": model.reader_model.backbone.parameters(),
-                "lr": args.lr_llm * 0.001,
-                "weight_decay": args.wd_llm * 0.001,
+                "lr": args.lr_llm * 0.01,
+                "weight_decay": args.wd_llm * 0.0025,
             },
             {
                 "params": model.reader_model.classifier.parameters(),
@@ -156,7 +182,7 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
     print("[INFO] Starting training...")
     config_log = dedent(
         f"""
-        === Training Configuration ===
+        === Training Configuration - Session #{session} ===
 
         [LLM Optimizer]
           Learning Rate      : {args.lr_llm}
@@ -188,8 +214,10 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         step = 0
         for epoch in range(args.isolated_epochs_cnn):
             model.train()
+            epoch_step = 0
             for batch in train_loader:
                 step += 1
+                epoch_step += 1
                 step_model(
                     model.cnn_model,
                     opt_cnn,
@@ -199,14 +227,16 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
                     test_loader,
                     loss_fn,
                     step,
-                    epoch,
+                    epoch + (epoch_step / len(train_loader)),
                 )
 
         step = 0
         for epoch in range(args.isolated_epochs_llm):
             model.train()
+            epoch_step = 0
             for batch in train_loader:
                 step += 1
+                epoch_step += 1
                 step_model(
                     model.reader_model,
                     opt_llm,
@@ -216,24 +246,26 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
                     test_loader,
                     loss_fn,
                     step,
-                    epoch,
+                    epoch + (epoch_step / len(train_loader)),
                 )
 
-        decay = 0.1
-        for pg in opt_cnn.param_groups:
-            pg["lr"] *= decay
-        print("[CNN] new lr:", [pg["lr"] for pg in opt_cnn.param_groups])
-
-        for pg in opt_llm.param_groups:
-            pg["lr"] *= decay
-        print("[LLM] new lr:", [pg["lr"] for pg in opt_llm.param_groups])
+        # decay = 0.1
+        # for pg in opt_cnn.param_groups:
+        #     pg["lr"] *= decay
+        # print("[CNN] new lr:", [pg["lr"] for pg in opt_cnn.param_groups])
+        #
+        # for pg in opt_llm.param_groups:
+        #     pg["lr"] *= decay
+        # print("[LLM] new lr:", [pg["lr"] for pg in opt_llm.param_groups])
 
         step = 0
         load_best_weights(model, session)
         for epoch in range(args.epochs):
             model.train()
+            epoch_step = 0
             for batch in train_loader:
                 step += 1
+                epoch_step += 1
                 step_model(
                     model,
                     opt_mlp,
@@ -243,7 +275,7 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
                     test_loader,
                     loss_fn,
                     step,
-                    epoch,
+                    epoch + (epoch_step / len(train_loader)),
                 )
 
 
@@ -313,7 +345,7 @@ if __name__ == "__main__":
     count_classes(test_dataset)
 
     args = parse_args()
-    pw = torch.tensor([(n0 / n1) ** args.pw_multiplier], dtype=torch.float32).to(device)
+    pw = torch.tensor([(n0 / n1) * args.pw_multiplier], dtype=torch.float32).to(device)
 
     train_loop(
         model,

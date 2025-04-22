@@ -1,3 +1,14 @@
+# NOTES
+
+okay, one huge improvement was skipping isolated branch model training (session 14)
+and lowering pw weight multiplier much more.
+now i'm messing around with the random distance probability distribution.
+gonna test erlang dist.
+
+currently training (on 4) branch models with distance feature
+and tuned params.
+also (on 5) without distance feature to branch models & tuned params.
+
 # DATASET
 
 ```
