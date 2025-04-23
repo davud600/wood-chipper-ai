@@ -53,6 +53,6 @@ def split_request(
     )
 
     # delete redis keys.
-    keys_to_delete = redis.keys(f"*:{document_context["document_id"]}*")
+    keys_to_delete = redis.keys(f"*:{document_context['document_id']}*")
     if keys_to_delete:
         redis.delete(*keys_to_delete)  # type: ignore
