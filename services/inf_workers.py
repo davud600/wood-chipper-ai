@@ -12,10 +12,10 @@ from .context_buffer import ContextBuffer
 
 
 from config.settings import (
-    SPLITTER_MODEL_PATH,
+    SPLITTER_MODEL_DIR,
     max_chars,
     image_output_size,
-    pages_to_skip_after_finding_first_page,
+    # pages_to_skip_after_finding_first_page,
 )
 from type_defs.shared import DocumentContext, SharedQueues
 from lib.redis import redis
@@ -28,9 +28,17 @@ from lib.document_records import create_document_record, add_document_to_client_
 from lib.s3 import upload_file_to_s3
 from splitter.inference import is_first_page
 from splitter.model import FusionModel
+from splitter.utils import load_best_weights
 
 debug_dir = f"debug_batches"
 os.makedirs(debug_dir, exist_ok=True)
+
+session_dirs = [
+    int(d)
+    for d in os.listdir(SPLITTER_MODEL_DIR)
+    if os.path.isdir(os.path.join(SPLITTER_MODEL_DIR, d)) and d.isdigit()
+]
+session = max(session_dirs, default=0)
 
 
 def start_inf_workers(
@@ -89,9 +97,10 @@ def inference_worker(
 
     print("loading model...")
     model = FusionModel(image_size=image_output_size).to("cuda")
-    model.load_state_dict(
-        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
-    )
+    load_best_weights(model, session, True)
+    # model.load_state_dict(
+    #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+    # )
     model.eval()
 
     ctx_buff = ContextBuffer()

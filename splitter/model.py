@@ -55,19 +55,16 @@ class FusionModel(nn.Module):
         #     nn.Linear(8, 1),
         # )
 
-        self.fusion_mlp = nn.Sequential(
-            nn.Linear(3, 8),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(8, 4),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(4, 1),
-        )
-
         # self.fusion_mlp = nn.Sequential(
-        #     nn.Linear(3, 1),
+        #     nn.Linear(3, 8),
+        #     nn.ReLU(),
+        #     nn.Dropout(dropout),
+        #     nn.Linear(8, 1),
         # )
+
+        self.fusion_mlp = nn.Sequential(
+            nn.Linear(3, 1),
+        )
 
         self.apply(init_weights)
 

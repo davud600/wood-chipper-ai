@@ -51,8 +51,8 @@ class CNNModel(nn.Module):
             self.flattened_dim = dummy_out.view(1, -1).shape[1]
 
         self.classifier = nn.Sequential(
-            nn.Linear(64 + 1, 32),
-            # nn.Linear(64, 32),
+            # nn.Linear(64 + 1, 32),
+            nn.Linear(64, 32),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(32, 1),
@@ -64,14 +64,14 @@ class CNNModel(nn.Module):
         x = self.conv_block(data["cnn_input"].to(device))
         x = F.adaptive_avg_pool2d(x, 1).view(x.size(0), -1)
 
-        logits = self.classifier(
-            torch.cat(
-                [x, data["distance"].to(device)],
-                dim=1,
-            )
-        )  # (b, 1)
+        # logits = self.classifier(
+        #     torch.cat(
+        #         [x, data["distance"].to(device)],
+        #         dim=1,
+        #     )
+        # )  # (b, 1)
 
-        # logits = self.classifier(x)  # (b, 1)
+        logits = self.classifier(x)  # (b, 1)
 
         if loss_fn:
             return logits, loss_fn(logits, data["labels"].to(device))

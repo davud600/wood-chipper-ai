@@ -5,16 +5,16 @@ print("device:", device)
 
 # default values if not specified as args.
 
-training_mini_batch_size = 64
-testing_mini_batch_size = 64
+training_mini_batch_size = 32
+testing_mini_batch_size = 32
 
 lr_cnn = 0.01
 wd_cnn = 0.0001
-isolated_epochs_cnn = 0
+isolated_epochs_cnn = 1
 
 lr_llm = 0.01
 wd_llm = 0.0001
-isolated_epochs_llm = 0
+isolated_epochs_llm = 1
 
 lr_mlp = 0.00005
 wd_mlp = 0.0001

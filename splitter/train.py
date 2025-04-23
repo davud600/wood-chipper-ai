@@ -80,7 +80,7 @@ def step_model(
 
     if step % log_steps == 0:
         print(
-            f"[{model.title.upper()}] [STEP {step}] Epoch {epoch:.4f} | Loss: {loss.item():.4f} | true: {int(batch['labels'][0])} | pred: {torch.sigmoid(logits.squeeze(-1)[0]):.2f} | lr: {optimizer.param_groups[0]['lr']}"
+            f"[{model.title.upper()}] [STEP {step}] Epoch {epoch:.4f} | Loss: {loss.item():.4f} | true: {int(batch['labels'][0])} | pred: {torch.sigmoid(logits.squeeze(-1)[0]):.2f} | lr: {optimizer.param_groups[-1]['lr']}"
         )
 
     if step % eval_steps == 0:
@@ -119,14 +119,15 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         shuffle=True,
         num_workers=12,
     )
-    loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
+    # loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
+    loss_fn = nn.BCEWithLogitsLoss()
 
     # opt_mlp = optim.AdamW(model.parameters(), lr=args.lr_mlp, weight_decay=args.wd_mlp)
     opt_mlp = optim.AdamW(
         [
             {
                 "params": model.reader_model.backbone.parameters(),
-                "lr": args.lr_llm * 0.0025,
+                "lr": args.lr_llm * 0.01,
                 "weight_decay": args.wd_llm * 0.0025,
             },
             {

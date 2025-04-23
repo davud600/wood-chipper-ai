@@ -107,9 +107,9 @@ class DocumentDataset(Dataset):
             img_filename = f"{file_id}_page_{(page_num - 1):03d}.jpg"
             img_path = os.path.join(self.image_dir, img_filename)
 
-            # doc_type = int(row["type"])
-            # if doc_type != 3:
-            #     continue
+            doc_type = int(row["type"])
+            if doc_type > 8:
+                continue
             # print(f"page {page_num} - {file_id}")
 
             if os.path.exists(img_path):
@@ -117,7 +117,7 @@ class DocumentDataset(Dataset):
 
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
-        max_files = None
+        max_files = 1000
         all_files = self.all_data["file"].unique()
         if max_files is not None:
             sampled_files = np.random.choice(  # type: ignore
@@ -128,10 +128,10 @@ class DocumentDataset(Dataset):
                 self.all_data["file"].isin(sampled_files)
             ].reset_index(drop=True)
 
-        max_pages_per_doc = 30
+        max_pages_per_doc = 25
         sampled_rows = []
         num_augmented = (
-            6  # num of times to include first page with random prev page in dataset.
+            7  # num of times to include first page with random prev page in dataset.
         )
 
         if mode == "train":

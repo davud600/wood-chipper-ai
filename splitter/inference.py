@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 from .config import device
-from config.settings import max_length, image_output_size, doc_length_bins
+from config.settings import max_length, image_output_size
 
 
 def is_first_page(
@@ -87,7 +87,7 @@ def is_first_page(
     )
     input_ids = encoding["input_ids"].to("cuda")  # type: ignore
     attention_mask = encoding["attention_mask"].to("cuda")  # type: ignore
-    distance = prev_first_page_distance / max(doc_length_bins)
+    distance = prev_first_page_distance / 700
     distance = torch.tensor([distance], dtype=torch.float16).to("cuda")
 
     # with torch.no_grad():
