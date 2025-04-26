@@ -1,23 +1,19 @@
 import multiprocessing
-import Levenshtein
 import numpy as np
-import torch
 import os
 
 
+from PIL import Image
 from typing import Dict
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 from .context_buffer import ContextBuffer
-
-
 from config.settings import (
     SPLITTER_MODEL_DIR,
     max_chars,
     image_output_size,
-    # pages_to_skip_after_finding_first_page,
 )
-from type_defs.shared import DocumentContext, SharedQueues
+from type_defs.shared import DocumentContext, SharedQueues, InferWorkerState
 from lib.redis import redis
 from lib.redis.queues import (
     shared_queue_pop,
@@ -28,7 +24,6 @@ from lib.document_records import create_document_record, add_document_to_client_
 from lib.s3 import upload_file_to_s3
 from splitter.inference import is_first_page
 from splitter.model import FusionModel
-from splitter.utils import load_best_weights
 
 debug_dir = f"debug_batches"
 os.makedirs(debug_dir, exist_ok=True)
@@ -40,10 +35,13 @@ session_dirs = [
 ]
 session = max(session_dirs, default=0)
 
+last_cut_was_separator = False
+
 
 def start_inf_workers(
     document_context: DocumentContext,
     workers: int,
+    pages: int,
 ) -> list[multiprocessing.Process]:
     """
     Starts inference worker processes.
@@ -68,7 +66,7 @@ def start_inf_workers(
     for _ in range(workers):
         process = ctx.Process(
             target=inference_worker,
-            args=(document_context,),
+            args=(document_context, pages),
         )
 
         process.start()
@@ -77,9 +75,7 @@ def start_inf_workers(
     return inf_processes
 
 
-def inference_worker(
-    document_context: DocumentContext,
-):
+def inference_worker(document_context: DocumentContext, pages: int):
     """
     Main loop for the inference worker.
 
@@ -92,12 +88,12 @@ def inference_worker(
         Metadata for the document being processed.
     """
 
-    print("loading tokenizer...")
+    # print("loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
-    print("loading model...")
+    # print("loading model...")
     model = FusionModel(image_size=image_output_size).to("cuda")
-    load_best_weights(model, session, True)
+    # load_best_weights(model, session, True)
     # model.load_state_dict(
     #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
     # )
@@ -119,6 +115,7 @@ def inference_worker(
                     ctx_buff.get_prev_items(prime_page),
                     ctx_buff.get_next_items(prime_page),
                     images,
+                    pages,
                 )
                 ctx_buff.mark_processed(prime_page)
             break
@@ -128,6 +125,7 @@ def inference_worker(
         images[page] = image
 
         for prime_page in ctx_buff.get_ready_items():
+            # print(f"processing page {page}")
             process_page(
                 document_context,
                 tokenizer,
@@ -136,6 +134,7 @@ def inference_worker(
                 ctx_buff.get_prev_items(prime_page),
                 ctx_buff.get_next_items(prime_page),
                 images,
+                pages,
             )
             ctx_buff.mark_processed(prime_page)
 
@@ -144,10 +143,11 @@ def process_page(
     document_context: "DocumentContext",
     tokenizer: PreTrainedTokenizer,
     model: FusionModel,
-    page,
+    page: int,
     prev_pages,
     next_pages,
     images: Dict[int, np.ndarray],
+    pages: int,
 ):
     """
     Run inference on a single page using surrounding context.
@@ -180,96 +180,78 @@ def process_page(
         Dictionary mapping page numbers to grayscale image arrays.
     """
 
+    global last_cut_was_separator
+
     # get images & contents of all pages and format them.
-    image_batch = []
     content_batch = ""
 
-    for i, page in enumerate(prev_pages):
-        image_batch.append(images.get(page))
-        prev_content = get_page_content(document_context, page)
+    for i, prev_page in enumerate(prev_pages):
+        prev_content = get_page_content(document_context, prev_page)
         content_batch += f"<prev_page_{len(prev_pages) - i}>{prev_content[:max_chars["prev_page"]]}</prev_page_{len(prev_pages) - i}>"
 
-    image_batch.append(images.get(page))
+    image = images.get(page)
     content = get_page_content(document_context, page)
     content_batch += f"<curr_page>{content[:max_chars["curr_page"]]}</curr_page>"
 
-    for i, page in enumerate(next_pages):
-        image_batch.append(images.get(page))
-        next_content = get_page_content(document_context, page)
+    for i, next_page in enumerate(next_pages):
+        next_content = get_page_content(document_context, next_page)
         content_batch += f"<next_page_{i + 1}>{next_content[:max_chars["next_page"]]}</next_page_{i + 1}>"
 
     # inference if not last or first page of doc.
-    found_first_page, offset = True, 0
+    state = get_state(document_context)
 
+    if page == pages - 1:
+        handle_first_page(
+            state["sub_doc_count"],
+            state["prev_split_page"],
+            page,
+            0 if not last_cut_was_separator else 1,
+            document_context,
+        )
+        return
     if page == 0:
         return
 
-    if len(next_pages) > 0:
-        # # debug: save images to disk.
-        # for idx, img in enumerate(images):
-        #     page_number = (
-        #         queue[page_idx + idx - prev_pages_to_append][0]
-        #         if 0 <= page_idx + idx - prev_pages_to_append < len(queue)
-        #         else curr_page
-        #     )
-        #     debug_path = os.path.join(debug_dir, f"page_{page_number:03d}.png")
-        #     Image.fromarray(img).save(debug_path)
+    # # debug: save images to disk.
+    # debug_path = os.path.join(debug_dir, f"page_{page:03d}.png")
+    # Image.fromarray(image).save(debug_path)  # type: ignore
 
-        prev_split_key = f"prev_split_page:{document_context['document_id']}"
-        prev_split_bytes = redis.get(prev_split_key)
-        prev_split_page = int.from_bytes(prev_split_bytes, byteorder="big", signed=True)  # type: ignore
+    # (mostly) lease renewals edge case:
+    # check content similarity between prime page and prev split page.
+    # if too similar (almost identical) then skip.
+    # prev_split_page_content = get_page_content(
+    #     document_context, prev_split_page + 1
+    # )
+    # similarity = Levenshtein.ratio(prev_split_page_content, content)
+    # if similarity > 0.985:
+    #     return
 
-        # (mostly) lease renewals edge case:
-        # check content similarity between prime page and prev split page.
-        # if too similar (almost identical) then skip.
-        prev_split_page_content = get_page_content(
-            document_context, prev_split_page + 1
-        )
-        similarity = Levenshtein.ratio(prev_split_page_content, content)
-        if similarity > 0.985:
-            return
+    # inference...
+    # print(f"[inference] page {page} - prev page {state["prev_split_page"]}")
+    distance = (page - 1) - state["prev_split_page"]
+    found_first_page, offset = is_first_page(
+        tokenizer, model, content_batch, distance, image
+    )
 
-        # inference...
-        distance = page - (prev_split_page + 1)
-        found_first_page, offset = is_first_page(
-            tokenizer, model, content_batch, image_batch, distance
-        )
+    if offset > 0:
+        last_cut_was_separator = True
 
     # if first page call func.
     if found_first_page:
-        prev_split_key = f"prev_split_page:{document_context['document_id']}"
-        sub_doc_key = f"sub_doc_count:{document_context['document_id']}"
-
-        prev_split_bytes = redis.get(prev_split_key)
-        sub_doc_bytes = redis.get(sub_doc_key)
-
-        if prev_split_bytes is None:
-            raise ValueError(f"Missing Redis value for key: {prev_split_key}")
-        if sub_doc_bytes is None:
-            raise ValueError(f"Missing Redis value for key: {sub_doc_key}")
-
-        prev_split_page = int.from_bytes(prev_split_bytes, byteorder="big", signed=True)  # type: ignore
-        sub_doc_count = int.from_bytes(sub_doc_bytes, byteorder="big")  # type: ignore
-
-        # update prev_split_page & sub_doc_count.
-        redis.set(
-            prev_split_key,
-            (page).to_bytes(4, byteorder="big", signed=True),
-        )
-        redis.set(
-            sub_doc_key,
-            (sub_doc_count + 1).to_bytes(4, byteorder="big", signed=False),
-        )
-
         handle_first_page(
-            sub_doc_count, prev_split_page, page, offset, document_context
+            state["sub_doc_count"],
+            state["prev_split_page"],
+            page - 1,
+            offset,
+            document_context,
         )
+        update_state(document_context, page + offset, state["sub_doc_count"] + 1)
 
 
 def handle_first_page(
-    sub_doc_count: int,
-    prev_split_page: int,
-    page: int,
+    count: int,
+    start_page: int,
+    end_page: int,
     offset: int,
     document_context: DocumentContext,
 ):
@@ -281,13 +263,13 @@ def handle_first_page(
 
     Parameters
     ----------
-    sub_doc_count : int
+    count : int
         Number of sub-documents created so far.
 
-    prev_split_page : int
+    start_page : int
         Start page of the last detected document segment.
 
-    page : int
+    end_page : int
         Current page detected as a new document.
 
     offset : int
@@ -297,25 +279,25 @@ def handle_first_page(
         Metadata for the parent document.
     """
 
-    print(f"creating sub document {prev_split_page} - {page}...")
+    print(f"\ncreating sub document {start_page} - {end_page}...")
     document_id, signed_put_url = create_document_record(
         str(document_context["token"]),
         {
             "transactionId": int(document_context["transaction_id"]),
             "parentDocumentId": int(document_context["document_id"]),
-            "originalFileName": f"{str(document_context["file_name"]).replace('.pdf', '')}-{sub_doc_count}.pdf",
+            "originalFileName": f"{str(document_context["file_name"]).replace('.pdf', '')}-{count}.pdf",
         },
     )
 
     # update redis keys for doc contents to be used later on processing step.
-    for i in range(page - prev_split_page - offset):
+    for i in range((end_page - start_page) + 1):
         raw = redis.get(
-            f"page_content:{document_context["document_id"]}:{i + prev_split_page + offset}"
+            f"page_content:{document_context["document_id"]}:{i + start_page}"
         )
         page_content: str = raw.decode("utf-8") if raw else ""  # type: ignore
 
         print(
-            f"page_content:{document_context["document_id"]}:{i + prev_split_page + offset} => {str(page_content)[:10]} => page_content:{document_id}:{i}"
+            f"page_content:{document_context["document_id"]}:{i + start_page} ({str(page_content)[:10]}) => page_content:{document_id}:{i}"
         )
 
         redis.set(
@@ -324,13 +306,47 @@ def handle_first_page(
         )
 
     sub_document_path = create_sub_document(
-        str(document_context["file_name"]), prev_split_page, page - offset, document_id
+        str(document_context["file_name"]), start_page, end_page, document_id
     )
 
     upload_file_to_s3(signed_put_url, sub_document_path)
     add_document_to_client_queue(str(document_context["token"]), document_id)
 
 
-def get_page_content(document_context: "DocumentContext", page: int) -> str:
+def get_page_content(document_context: DocumentContext, page: int) -> str:
     raw = redis.get(f"page_content:{document_context["document_id"]}:{page}")
     return raw.decode("utf-8") if raw else ""  # type: ignore
+
+
+def get_state(document_context: DocumentContext) -> InferWorkerState:
+    prev_split_key = f"prev_split_page:{document_context['document_id']}"
+    sub_doc_key = f"sub_doc_count:{document_context['document_id']}"
+
+    prev_split_bytes = redis.get(prev_split_key)
+    sub_doc_bytes = redis.get(sub_doc_key)
+
+    if prev_split_bytes is None:
+        raise ValueError(f"Missing Redis value for key: {prev_split_key}")
+    if sub_doc_bytes is None:
+        raise ValueError(f"Missing Redis value for key: {sub_doc_key}")
+
+    prev_split_page = int.from_bytes(prev_split_bytes, byteorder="big", signed=True)  # type: ignore
+    sub_doc_count = int.from_bytes(sub_doc_bytes, byteorder="big")  # type: ignore
+
+    return {"prev_split_page": prev_split_page, "sub_doc_count": sub_doc_count}
+
+
+def update_state(
+    document_context: DocumentContext, prev_split_page: int, sub_doc_count: int
+):
+    prev_split_key = f"prev_split_page:{document_context['document_id']}"
+    sub_doc_key = f"sub_doc_count:{document_context['document_id']}"
+
+    redis.set(
+        prev_split_key,
+        prev_split_page.to_bytes(4, byteorder="big", signed=True),
+    )
+    redis.set(
+        sub_doc_key,
+        sub_doc_count.to_bytes(4, byteorder="big", signed=False),
+    )

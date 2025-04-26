@@ -91,7 +91,7 @@ def image_producer(document: "Document", page: int, document_context: DocumentCo
         shared_queue_push(
             document_context["document_id"], SharedQueues.Images, encoded_img
         )
-        print(f"[img] page {page} queued.")
+        # print(f"[img] page {page} queued.")
     except Exception as e:
         encoded_img = encode_image_queue_item(page, np.array([]))
         shared_queue_push(

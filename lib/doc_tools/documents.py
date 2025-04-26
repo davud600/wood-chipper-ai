@@ -122,7 +122,7 @@ def delete_pdf_images(file_name: str):
 def create_sub_document(file_name: str, start_page: int, end_page: int, id: int) -> str:
     """
     file_name -> file name of parent document inside downloads dir.
-    start_page -> prev first page, NOT included in sub document.
+    start_page -> prev first page, included in sub document.
     end_page -> detected first page, included in sub document.
     """
 
@@ -132,7 +132,7 @@ def create_sub_document(file_name: str, start_page: int, end_page: int, id: int)
     src_doc = fitz.open(file_path)
     sub_doc = fitz.open()
 
-    sub_doc.insert_pdf(src_doc, from_page=start_page + 1, to_page=end_page)
+    sub_doc.insert_pdf(src_doc, from_page=start_page, to_page=end_page)
     sub_doc.save(output_path)
 
     return output_path

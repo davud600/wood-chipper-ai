@@ -108,7 +108,7 @@ class DocumentDataset(Dataset):
             img_path = os.path.join(self.image_dir, img_filename)
 
             doc_type = int(row["type"])
-            if doc_type > 8:
+            if doc_type > 6 and doc_type != 0:
                 continue
             # print(f"page {page_num} - {file_id}")
 
@@ -117,7 +117,7 @@ class DocumentDataset(Dataset):
 
         self.all_data = pd.DataFrame(valid_rows).reset_index(drop=True)
 
-        max_files = 1000
+        max_files = None
         all_files = self.all_data["file"].unique()
         if max_files is not None:
             sampled_files = np.random.choice(  # type: ignore
@@ -277,57 +277,69 @@ class DocumentDataset(Dataset):
             fallback_pages,
         )
 
+    # def _get_context_images(self, file_id, center_page, fallback_pages=None):
+    #     images = []
+    #
+    #     for i, offset in enumerate(range(-self.prev_n, self.next_n + 1)):
+    #         if offset == 0:
+    #             tag = "curr_page"
+    #         elif offset < 0:
+    #             tag = f"prev_page_{-offset}"
+    #         else:
+    #             tag = f"next_page_{offset}"
+    #
+    #         current_file = file_id
+    #         page_idx = center_page + offset - 1
+    #
+    #         match = self.all_data[
+    #             (self.all_data["file"] == file_id)
+    #             & (self.all_data["page"] == center_page + offset)
+    #         ]
+    #
+    #         if len(match) > 0:
+    #             image_tensor = self._load_image_tensor(file_id, page_idx)
+    #         elif fallback_pages and tag in fallback_pages:
+    #             current_file = fallback_pages[tag]
+    #             fallback_df = self.all_data[self.all_data["file"] == current_file]
+    #             if offset < 0:
+    #                 fallback_row = fallback_df.sort_values("page").iloc[-1]  # type: ignore
+    #             else:
+    #                 fallback_row = fallback_df.sort_values("page").iloc[0]  # type: ignore
+    #
+    #             page_idx = int(fallback_row["page"]) - 1
+    #             image_tensor = self._load_image_tensor(current_file, page_idx)
+    #         else:
+    #             image_tensor = torch.zeros(self.image_size, dtype=torch.float16)
+    #
+    #         # 📌 ADD POSITION MASK
+    #         pos_mask = torch.full_like(image_tensor, 0.1)
+    #         if offset == 0:  # only current page gets 1s
+    #             pos_mask.fill_(1.0)
+    #
+    #         # Combine image + mask → (2, H, W)
+    #         combined = torch.stack([image_tensor, pos_mask], dim=0)
+    #
+    #         image_tensor = image_tensor.squeeze(0)  # (H, W)
+    #         pos_mask = torch.full_like(image_tensor, 0.25)
+    #         if offset == 0:
+    #             pos_mask.fill_(1.0)
+    #
+    #         combined = torch.stack([image_tensor, pos_mask], dim=0)  # (2, H, W)
+    #         images.append(combined)
+    #
+    #     return torch.cat(images, dim=0)  # (C=2*3, H, W) if 3 pages
+
     def _get_context_images(self, file_id, center_page, fallback_pages=None):
-        images = []
+        match = self.all_data[
+            (self.all_data["file"] == file_id) & (self.all_data["page"] == center_page)
+        ]
 
-        for i, offset in enumerate(range(-self.prev_n, self.next_n + 1)):
-            if offset == 0:
-                tag = "curr_page"
-            elif offset < 0:
-                tag = f"prev_page_{-offset}"
-            else:
-                tag = f"next_page_{offset}"
+        if len(match) > 0:
+            image_tensor = self._load_image_tensor(file_id, center_page - 1)
+        else:
+            image_tensor = torch.zeros(self.image_size, dtype=torch.float16)
 
-            current_file = file_id
-            page_idx = center_page + offset - 1
-
-            match = self.all_data[
-                (self.all_data["file"] == file_id)
-                & (self.all_data["page"] == center_page + offset)
-            ]
-
-            if len(match) > 0:
-                image_tensor = self._load_image_tensor(file_id, page_idx)
-            elif fallback_pages and tag in fallback_pages:
-                current_file = fallback_pages[tag]
-                fallback_df = self.all_data[self.all_data["file"] == current_file]
-                if offset < 0:
-                    fallback_row = fallback_df.sort_values("page").iloc[-1]  # type: ignore
-                else:
-                    fallback_row = fallback_df.sort_values("page").iloc[0]  # type: ignore
-
-                page_idx = int(fallback_row["page"]) - 1
-                image_tensor = self._load_image_tensor(current_file, page_idx)
-            else:
-                image_tensor = torch.zeros(self.image_size, dtype=torch.float16)
-
-            # 📌 ADD POSITION MASK
-            pos_mask = torch.full_like(image_tensor, 0.1)
-            if offset == 0:  # only current page gets 1s
-                pos_mask.fill_(1.0)
-
-            # Combine image + mask → (2, H, W)
-            combined = torch.stack([image_tensor, pos_mask], dim=0)
-
-            image_tensor = image_tensor.squeeze(0)  # (H, W)
-            pos_mask = torch.full_like(image_tensor, 0.25)
-            if offset == 0:
-                pos_mask.fill_(1.0)
-
-            combined = torch.stack([image_tensor, pos_mask], dim=0)  # (2, H, W)
-            images.append(combined)
-
-        return torch.cat(images, dim=0)  # (C=2*3, H, W) if 3 pages
+        return image_tensor.squeeze(0)  # (H, W)
 
     def _get_context_labels(
         self, file_id, center_page, fallback_pages=None
@@ -404,9 +416,7 @@ class DocumentDataset(Dataset):
         attention_mask = encoding["attention_mask"].squeeze(0)
 
         # === Build image context ===
-        cnn_input = self._get_context_images(
-            file_id, page_num, fallback_df
-        )  # (C, H, W)
+        cnn_input = self._get_context_images(file_id, page_num, fallback_df)  # (H, W)
 
         # === Labels ===
         labels = self._get_context_labels(file_id, page_num, fallback_df)  # (C,)

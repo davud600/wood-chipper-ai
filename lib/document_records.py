@@ -53,6 +53,7 @@ def add_document_to_client_queue(token: str, document_id: int):
 
 
 def notify_for_finished_splitting(token: str, parent_document_id: int):
+    print("notifying web server for finishing split pipeline...")
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
         f"{API_URL}/api/common-document-processor/finished_splitting_document?parentDocumentId={parent_document_id}",
@@ -65,6 +66,7 @@ def notify_for_finished_splitting(token: str, parent_document_id: int):
 
 
 def notify_for_finished_processing(token: str, document_id: int, data: Dict[str, str]):
+    print("notifying web server for finishing doc processing...")
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(
         f"{API_URL}/api/common-document-processor/finished_processing_document?documentId={document_id}",

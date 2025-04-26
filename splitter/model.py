@@ -55,16 +55,16 @@ class FusionModel(nn.Module):
         #     nn.Linear(8, 1),
         # )
 
-        # self.fusion_mlp = nn.Sequential(
-        #     nn.Linear(3, 8),
-        #     nn.ReLU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(8, 1),
-        # )
-
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(3, 1),
+            nn.Linear(3, 8),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(8, 1),
         )
+
+        # self.fusion_mlp = nn.Sequential(
+        #     nn.Linear(3, 1),
+        # )
 
         self.apply(init_weights)
 
@@ -77,6 +77,11 @@ class FusionModel(nn.Module):
         #     distance += torch.randn_like(data["distance"]) * 0.001
 
         # 🔥 MLP fusion CNN + LLM inputs & other inputs.
+
+        # print("distance", distance.shape)
+        # print("cnn_logits", cnn_logits.shape)
+        # print("llm_logits", llm_logits.shape)
+
         stack = torch.cat(
             [
                 distance.to(device),

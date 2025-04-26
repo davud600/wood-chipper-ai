@@ -35,23 +35,14 @@ if __name__ == "__main__":
     # print(f"load model time: {t2-t1}")
 
     document_context = {
-        "file_path": "/home/davud/wood-chipper-ai/merged_removed.pdf",
-        "file_name": "merged_removed.pdf",
+        "file_path": "/home/davud/wood-chipper-ai/test.pdf",
+        "file_name": "test.pdf",
         "document_id": 1,
-        "transaction_id": 1,
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlzQWRtaW4iOnRydWUsIm5hbWUiOiJBZG1pbiIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwiaWF0IjoxNzQzOTQyNDg1LCJleHAiOjE3NDM5NzEyODV9.oXn4HzMeAtIZZu3POZI1_w0BGY1ZZ5HRUpofB2GCERA",
-    }
-    document_context1 = {
-        "file_path": "/home/davud/wood-chipper-ai/merged_removed.pdf",
-        "file_name": "merged_removed.pdf",
-        "document_id": 2,
         "transaction_id": 1,
         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlzQWRtaW4iOnRydWUsIm5hbWUiOiJBZG1pbiIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwiaWF0IjoxNzQzOTQyNDg1LCJleHAiOjE3NDM5NzEyODV9.oXn4HzMeAtIZZu3POZI1_w0BGY1ZZ5HRUpofB2GCERA",
     }
     doc = fitz.open(document_context["file_path"])
     document_pages = len(doc)
-    # document_pages = 1
-    # page_batches = split_arr(list(range(document_pages)), pages_to_append + 1)
 
     real_contents = []
     # for page in range(document_pages):

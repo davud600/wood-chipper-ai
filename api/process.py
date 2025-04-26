@@ -31,19 +31,20 @@ def process_request(
     None
     """
 
+    # print("processing document...")
     contents: list[str] = []
     for i in range(0, pages_to_append):
         raw = redis.get(f"page_content:{document_context['document_id']}:{i}")
         page_content: str = raw.decode("utf-8") if raw else ""  # type: ignore
 
-        print(
-            f"#{document_context['document_id']} page {i} content:",
-            f"{page_content[:25]}...",
-        )
+        # print(
+        #     f"#{document_context['document_id']} page {i} content:",
+        #     f"{page_content[:25]}...",
+        # )
         contents += [page_content]
 
     document_context["file_name"] = f"{document_context["document_id"]}.pdf"
-    print(f"{document_context['file_name']} - {len(contents) > 0}")
+    # print(f"{document_context['file_name']} - {len(contents) > 0}")
 
     content_batch = ""
     if len(contents) > 0:
@@ -72,8 +73,8 @@ def process_request(
         except Exception as e:
             print(e)
 
-    data = request_data_points(content_batch)
-    # data = {}
+    # data = request_data_points(content_batch)
+    data = {}
     notify_for_finished_processing(
         str(document_context["token"]),
         int(document_context["document_id"]),

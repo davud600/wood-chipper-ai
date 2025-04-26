@@ -5,8 +5,8 @@ print("device:", device)
 
 # default values if not specified as args.
 
-training_mini_batch_size = 32
-testing_mini_batch_size = 32
+training_mini_batch_size = 64
+testing_mini_batch_size = 64
 
 lr_cnn = 0.01
 wd_cnn = 0.0001

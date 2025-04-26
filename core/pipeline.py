@@ -50,14 +50,14 @@ def process_pages_pipeline(
 
     redis.set(
         f"prev_split_page:{document_context['document_id']}",
-        (-1).to_bytes(4, byteorder="big", signed=True),
+        (0).to_bytes(4, byteorder="big", signed=True),
     )
     redis.set(
         f"sub_doc_count:{document_context['document_id']}",
         (0).to_bytes(4, byteorder="big", signed=False),
     )
 
-    inf_processes = start_inf_workers(document_context, max_inf_workers)
+    inf_processes = start_inf_workers(document_context, max_inf_workers, pages)
     ocr_processes = start_ocr_workers(document_context, max_ocr_workers, ocr_batch_size)
     img_processes = start_img_producers(pages, document_context, max_img_workers)
 

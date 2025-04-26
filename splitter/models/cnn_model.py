@@ -6,7 +6,8 @@ from torchvision import transforms
 
 from ..config import device
 from ..utils import init_weights
-from config.settings import prev_pages_to_append, pages_to_append
+
+# from config.settings import prev_pages_to_append, pages_to_append
 
 target_size = (512, 512)
 
@@ -15,7 +16,7 @@ class CNNModel(nn.Module):
     def __init__(self, image_size=(1024, 1024), dropout: float = 0.1):
         super().__init__()
         self.title = "cnn"
-        self.in_channels = (prev_pages_to_append + 1 + pages_to_append) * 2
+        self.in_channels = 1
         self.conv_block = nn.Sequential(
             nn.Conv2d(self.in_channels, 16, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(16),
@@ -61,7 +62,13 @@ class CNNModel(nn.Module):
         self.apply(init_weights)
 
     def forward(self, data, loss_fn=None):
-        x = self.conv_block(data["cnn_input"].to(device))
+        print("cnn input shape: ", data["cnn_input"].shape)
+
+        cnn_input = data["cnn_input"]
+        if cnn_input.ndim == 3:
+            cnn_input = cnn_input.unsqueeze(1)  # (B, 1, H, W)
+
+        x = self.conv_block(cnn_input.to(device))
         x = F.adaptive_avg_pool2d(x, 1).view(x.size(0), -1)
 
         # logits = self.classifier(

@@ -47,6 +47,8 @@ project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CORPUS_FILE = os.path.join(project_root, "data", "dataset", "corpus.txt")
 TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
 
+SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
+# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
 # SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
 # SPLITTER_MODEL_PATH = os.path.join(
 #     project_root, "data", "models", "splitter_all_types.pth"
@@ -62,7 +64,7 @@ TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
 # SPLITTER_MODEL_PATH = os.path.join(
 #     project_root, "data", "models", "splitter_single_class_all_data.pth"
 # )
-SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter_381.pth")
+# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter_381.pth")
 SPLITTER_MODEL_DIR = os.path.join(project_root, "data", "models")
 
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")

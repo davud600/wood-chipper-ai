@@ -6,6 +6,8 @@ from enum import Enum
 
 type DocumentContext = Dict[str, int | str]
 
+type InferWorkerState = Dict[str, int]
+
 type DatasetMiniBatch = Dict[str, list[str] | list[int]]
 type Dataset = list[DatasetMiniBatch]
 
