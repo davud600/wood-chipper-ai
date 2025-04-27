@@ -75,14 +75,13 @@ def get_image_batch_contents(images: list[np.ndarray]) -> list[str]:
             else:
                 # Process OCR result: join tokens and clean newline characters.
                 text = " ".join(results[non_empty_index])
+                text = clean_text(text)
                 text = text.replace("\n", " ")
                 contents.append(text)
                 non_empty_index += 1
 
         return contents
     except Exception as e:
-        # for image in images:
-        #     print(image.shape)
         print(f"failed to get image conents:", e)
 
         return []
@@ -94,10 +93,10 @@ def get_image_contents(image: np.ndarray) -> str:
     """
 
     try:
-        t0 = time.time()
+        # t0 = time.time()
         results = reader.readtext(image, detail=0, paragraph=False, decoder="greedy")
-        t1 = time.time()
-        print(f"ocr: {t1 - t0}")
+        # t1 = time.time()
+        # print(f"ocr: {t1 - t0}")
         content = " ".join(results)
         content = clean_text(content)
         content = content.replace("\n", " ")

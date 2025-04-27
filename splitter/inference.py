@@ -51,11 +51,11 @@ def is_first_page(
         Page offset (currently unused and always 0).
     """
 
-    try:
-        a = content.split("</prev_page_1>")[1].lower()
-        b = a.split("</curr_page>")[0]
-    except:
-        return False, 0
+    # try:
+    #     a = content.split("</prev_page_1>")[1].lower()
+    #     b = a.split("</curr_page>")[0]
+    # except:
+    #     return False, 0
 
     # if (
     #     "newdocumentseparator"
@@ -67,26 +67,16 @@ def is_first_page(
     #     print(f"{b[:100]}...")
     #     return True, 1
     #
-    # if (
-    #     "insurance options"
-    #     in b
-    #     # or "indicator of the starting of new document" in content.lower()
-    #     # or "this serves as an" in b
-    #     # or "indicator of the starting of new document" in content.lower()
-    # ):
-    #     print(f"{b[:100]}...")
+    # return False, 0
+
+    # if "newdocument" in b:
+    #     # print(f"\nfound start of new doc page")
+    #     # print(b)
+    #     return True, 0
+    # else:
     #     return False, 0
-    #
-    # # return False, 0
 
-    if "newdocument" in b:
-        # print(f"\nfound start of new doc page")
-        # print(b)
-        return True, 0
-    else:
-        return False, 0
-
-    if prev_first_page_distance < 4:
+    if prev_first_page_distance < 3:
         return False, 0
 
     transform = transforms.Compose(
@@ -94,17 +84,10 @@ def is_first_page(
             transforms.Grayscale(num_output_channels=1),
             transforms.Resize(image_output_size),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5]),
+            transforms.ConvertImageDtype(torch.float16),
         ]
     )
-
-    # tensor_images = []
-    # for image in images:
-    #     pil_img = Image.fromarray(image)
-    #     tensor_img = transform(pil_img)
-    #     tensor_images.append(tensor_img)
-
-    # cnn_input = torch.cat(tensor_images, dim=0)
-    # cnn_input = cnn_input.unsqueeze(0).to(torch.float16).to(device)
 
     encoding = tokenizer(
         content,
@@ -115,50 +98,22 @@ def is_first_page(
     )
     input_ids = encoding["input_ids"].to("cuda")  # type: ignore
     attention_mask = encoding["attention_mask"].to("cuda")  # type: ignore
-    # distance = prev_first_page_distance / 700
-    # distance = torch.tensor([distance], dtype=torch.float16).to("cuda")
     distance = prev_first_page_distance / 700
     distance = torch.tensor([[distance]], dtype=torch.float16).to(
         "cuda"
     )  # shape (1, 1)
 
-    # images = []
-    # for i, image_tensor in enumerate(cnn_input):
-    #     # 📌 ADD POSITION MASK
-    #     pos_mask = torch.full_like(image_tensor, 0.1)
-    #     if i == 1:  # only current page gets 1s
-    #         pos_mask.fill_(1.0)
-    #
-    #     # Combine image + mask → (2, H, W)
-    #     combined = torch.stack([image_tensor, pos_mask], dim=0)
-    #
-    #     image_tensor = image_tensor.squeeze(0)  # (H, W)
-    #     pos_mask = torch.full_like(image_tensor, 0.25)
-    #     if i == 1:
-    #         pos_mask.fill_(1.0)
-    #
-    #     combined = torch.stack([image_tensor, pos_mask], dim=0)  # (2, H, W)
-    #     images.append(combined)
-
-    images_out = []
-    for i, image in enumerate(images):
-        pil_img = Image.fromarray(image)
-        image_tensor = transform(pil_img)  # (1, H, W)
-
-        pos_mask = torch.full_like(image_tensor, 0.25)
-        if i == 1:  # current page
-            pos_mask.fill_(1.0)
-
-        combined = torch.cat([image_tensor, pos_mask], dim=0)  # (2, H, W)
-        images_out.append(combined)
-
-    cnn_input = torch.stack(images_out, dim=0)  # (num_pages, 2, H, W)
     cnn_input = (
-        cnn_input.view(1, -1, *cnn_input.shape[-2:]).to(torch.float16).to(device)
-    )  # (1, C, H, W)
+        transform(Image.fromarray(image))
+        if image is not None
+        else transform(
+            Image.fromarray(torch.zeros(image_output_size, dtype=torch.float16))  # type: ignore
+        )
+    )
 
-    # with torch.no_grad():
-    with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=torch.float16):
+    with torch.amp.autocast_mode.autocast(
+        device_type="cuda", dtype=torch.float16
+    ) and torch.no_grad():
         logits = model(
             {
                 "input_ids": input_ids,
@@ -168,7 +123,5 @@ def is_first_page(
             }
         )
 
-    # pred_prob = torch.sigmoid(logits[0]).detach().cpu().numpy()
-    print("pred_prob", torch.sigmoid(logits[0]).detach().cpu().numpy())
-
-    return bool(torch.sigmoid(logits) > 0.4), 0
+    print("pred_prob", torch.sigmoid(logits).detach().cpu().numpy())
+    return bool(torch.sigmoid(logits) > 0.5), 0

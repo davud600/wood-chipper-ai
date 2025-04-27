@@ -4,7 +4,7 @@ import torch
 
 from torchvision import transforms
 
-from ..config import device
+from ..config import device, train_in_fp16
 from ..utils import init_weights
 
 # from config.settings import prev_pages_to_append, pages_to_append
@@ -42,7 +42,11 @@ class CNNModel(nn.Module):
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.5], std=[0.5]),
-                transforms.ConvertImageDtype(torch.float16),
+                (
+                    transforms.ConvertImageDtype(torch.float16)
+                    if train_in_fp16
+                    else transforms.ConvertImageDtype(torch.float32)
+                ),
             ]
         )
 
@@ -52,18 +56,25 @@ class CNNModel(nn.Module):
             self.flattened_dim = dummy_out.view(1, -1).shape[1]
 
         self.classifier = nn.Sequential(
-            # nn.Linear(64 + 1, 32),
             nn.Linear(64, 32),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(32, 1),
         )
 
+        # self.classifier = nn.Sequential(
+        #     nn.Linear(64, 32),
+        #     nn.Tanh(),
+        #     nn.Dropout(dropout),
+        #     nn.Linear(32, 16),
+        #     nn.ReLU(),
+        #     nn.Dropout(dropout),
+        #     nn.Linear(16, 1),
+        # )
+
         self.apply(init_weights)
 
     def forward(self, data, loss_fn=None):
-        print("cnn input shape: ", data["cnn_input"].shape)
-
         cnn_input = data["cnn_input"]
         if cnn_input.ndim == 3:
             cnn_input = cnn_input.unsqueeze(1)  # (B, 1, H, W)

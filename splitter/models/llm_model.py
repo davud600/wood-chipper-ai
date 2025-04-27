@@ -23,12 +23,27 @@ class ReaderModel(nn.Module):
             self.backbone.resize_token_embeddings(tokenizer_len)
 
         self.classifier = nn.Sequential(
-            # nn.Linear((self.config.hidden_size * 2) + 1, 32),
-            nn.Linear(self.config.hidden_size * 2, 32),
+            nn.Linear(self.config.hidden_size * 2, 64),
             nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(64, 32),
+            nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(32, 1),
         )
+
+        # self.classifier = nn.Sequential(
+        #     nn.Linear(self.config.hidden_size * 2, 128),
+        #     nn.GELU(),
+        #     nn.Dropout(dropout),
+        #     nn.Linear(128, 64),
+        #     nn.ReLU(),
+        #     nn.Dropout(dropout),
+        #     nn.Linear(64, 32),
+        #     nn.ReLU(),
+        #     nn.Dropout(dropout),
+        #     nn.Linear(32, 1),
+        # )
 
         self.apply(init_weights)
 

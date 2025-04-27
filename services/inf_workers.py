@@ -1,14 +1,14 @@
 import multiprocessing
 import numpy as np
+import torch
 import os
 
-
-from PIL import Image
 from typing import Dict
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 from .context_buffer import ContextBuffer
 from config.settings import (
+    SPLITTER_MODEL_PATH,
     SPLITTER_MODEL_DIR,
     max_chars,
     image_output_size,
@@ -94,9 +94,9 @@ def inference_worker(document_context: DocumentContext, pages: int):
     # print("loading model...")
     model = FusionModel(image_size=image_output_size).to("cuda")
     # load_best_weights(model, session, True)
-    # model.load_state_dict(
-    #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
-    # )
+    model.load_state_dict(
+        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+    )
     model.eval()
 
     ctx_buff = ContextBuffer()
@@ -228,7 +228,7 @@ def process_page(
 
     # inference...
     # print(f"[inference] page {page} - prev page {state["prev_split_page"]}")
-    distance = (page - 1) - state["prev_split_page"]
+    distance = page - state["prev_split_page"]
     found_first_page, offset = is_first_page(
         tokenizer, model, content_batch, distance, image
     )
@@ -297,7 +297,7 @@ def handle_first_page(
         page_content: str = raw.decode("utf-8") if raw else ""  # type: ignore
 
         print(
-            f"page_content:{document_context["document_id"]}:{i + start_page} ({str(page_content)[:10]}) => page_content:{document_id}:{i}"
+            f"page_content:{document_context["document_id"]}:{i + start_page} ({str(page_content)[:25]}...) => page_content:{document_id}:{i}"
         )
 
         redis.set(

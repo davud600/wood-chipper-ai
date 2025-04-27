@@ -26,6 +26,8 @@ from .config import (
     lr_mlp,
     wd_mlp,
     pw_multiplier,
+    train_in_fp16,
+    train_with_all_data,
 )
 from .utils import count_classes, evaluate, load_best_weights
 from .model import FusionModel
@@ -34,6 +36,7 @@ from config.settings import (
     TRAINING_DATA_CSV,
     TESTING_DATA_CSV,
     SPLITTER_MODEL_DIR,
+    BEST_PERF_TYPES,
     image_output_size,
 )
 
@@ -64,11 +67,6 @@ def step_model(
     epoch: float,
 ):
     optimizer.zero_grad()
-    # logits, loss = (
-    #     model(batch, loss_fn)
-    #     if not isinstance(model, FusionModel)
-    #     else model(batch, loss_fn, warmup=True)
-    # )
     logits, loss = model(batch, loss_fn)
     scaler.scale(loss).backward()
 
@@ -119,15 +117,15 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         shuffle=True,
         num_workers=12,
     )
-    # loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
-    loss_fn = nn.BCEWithLogitsLoss()
+    loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
+    # loss_fn = nn.BCEWithLogitsLoss()
 
     # opt_mlp = optim.AdamW(model.parameters(), lr=args.lr_mlp, weight_decay=args.wd_mlp)
     opt_mlp = optim.AdamW(
         [
             {
                 "params": model.reader_model.backbone.parameters(),
-                "lr": args.lr_llm * 0.01,
+                "lr": args.lr_llm * 0.0025,
                 "weight_decay": args.wd_llm * 0.0025,
             },
             {
@@ -163,7 +161,7 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         [
             {
                 "params": model.reader_model.backbone.parameters(),
-                "lr": args.lr_llm * 0.01,
+                "lr": args.lr_llm * 0.0025,
                 "weight_decay": args.wd_llm * 0.0025,
             },
             {
@@ -210,7 +208,10 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
     ).strip()
     print(config_log)
 
-    with torch.amp.autocast_mode.autocast(device_type=str(device), dtype=torch.float16):
+    with torch.amp.autocast_mode.autocast(
+        device_type=str(device),
+        dtype=(torch.float16 if train_in_fp16 else torch.float32),
+    ):
 
         step = 0
         for epoch in range(args.isolated_epochs_cnn):
@@ -333,6 +334,7 @@ if __name__ == "__main__":
         tokenizer,
         mode="train",
         image_size=image_output_size,
+        doc_types=(None if train_with_all_data else BEST_PERF_TYPES),
     )
     n1, n0 = count_classes(train_dataset)
 
@@ -342,11 +344,15 @@ if __name__ == "__main__":
         tokenizer,
         mode="test",
         image_size=image_output_size,
+        doc_types=(None if train_with_all_data else BEST_PERF_TYPES),
     )
     count_classes(test_dataset)
 
     args = parse_args()
-    pw = torch.tensor([(n0 / n1) * args.pw_multiplier], dtype=torch.float32).to(device)
+    pw = torch.tensor(
+        [(n0 / n1) * args.pw_multiplier],
+        dtype=(torch.float16 if train_in_fp16 else torch.float32),
+    ).to(device)
 
     train_loop(
         model,

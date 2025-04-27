@@ -16,6 +16,7 @@ from config.settings import (
     max_length,
 )
 from utils.general import clean_text
+from ..config import train_in_fp16, train_with_all_data
 
 
 # doc_length_bins = [5, 10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500, 800]
@@ -71,10 +72,19 @@ class DocumentDataset(Dataset):
 
     image_size : tuple, optional
         Image size used for resizing CNN inputs.
+
+    doc_type : int, optional
+        Document type to include, default None meaning all types included.
     """
 
     def __init__(
-        self, csv_path, tokenizer, mode="train", image_dir=None, image_size=(1024, 1024)
+        self,
+        csv_path,
+        tokenizer,
+        mode="train",
+        image_dir=None,
+        image_size=(1024, 1024),
+        doc_types: list[int] | None = None,
     ):
         super().__init__()
         self.verbose_indices = set(range(3)) if mode == "train" else set()
@@ -87,6 +97,7 @@ class DocumentDataset(Dataset):
 
         self.prev_n = prev_pages_to_append
         self.next_n = pages_to_append
+        self.doc_types = doc_types
 
         self.transform = transforms.Compose(
             [
@@ -94,7 +105,11 @@ class DocumentDataset(Dataset):
                 transforms.Resize(self.image_size),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.5], std=[0.5]),
-                transforms.ConvertImageDtype(torch.float16),
+                (
+                    transforms.ConvertImageDtype(torch.float16)
+                    if train_in_fp16
+                    else transforms.ConvertImageDtype(torch.float32)
+                ),
             ]
         )
 
@@ -107,10 +122,9 @@ class DocumentDataset(Dataset):
             img_filename = f"{file_id}_page_{(page_num - 1):03d}.jpg"
             img_path = os.path.join(self.image_dir, img_filename)
 
-            doc_type = int(row["type"])
-            if doc_type > 6 and doc_type != 0:
-                continue
-            # print(f"page {page_num} - {file_id}")
+            if self.doc_types is not None:
+                if int(row["type"]) not in self.doc_types:
+                    continue
 
             if os.path.exists(img_path):
                 valid_rows.append(row)
@@ -196,7 +210,11 @@ class DocumentDataset(Dataset):
 
             return image  # type: ignore
         else:
-            return torch.zeros(self.image_size, dtype=torch.float16)
+            return (
+                torch.zeros(self.image_size, dtype=torch.float16)
+                if train_in_fp16
+                else torch.zeros(self.image_size, dtype=torch.float32)
+            )
 
     def _get_context_text(self, file_id, center_page, use_random_fallback=True):
         texts = []
@@ -337,7 +355,11 @@ class DocumentDataset(Dataset):
         if len(match) > 0:
             image_tensor = self._load_image_tensor(file_id, center_page - 1)
         else:
-            image_tensor = torch.zeros(self.image_size, dtype=torch.float16)
+            image_tensor = (
+                torch.zeros(self.image_size, dtype=torch.float16)
+                if train_in_fp16
+                else torch.zeros(self.image_size, dtype=torch.float32)
+            )
 
         return image_tensor.squeeze(0)  # (H, W)
 
@@ -350,11 +372,19 @@ class DocumentDataset(Dataset):
 
         labels = [int(center_page == 1)]
 
-        return torch.tensor(labels, dtype=torch.float16)  # shape: (C,)
+        return (
+            torch.tensor(labels, dtype=torch.float16)
+            if train_in_fp16
+            else torch.tensor(labels, dtype=torch.float32)
+        )  # shape: (C,)
 
     def _get_item_label(self, idx: int) -> torch.Tensor:
-        return torch.tensor(
-            [int(self.data.iloc[idx]["page"] == 1)], dtype=torch.float16
+        return (
+            torch.tensor([int(self.data.iloc[idx]["page"] == 1)], dtype=torch.float16)
+            if train_in_fp16
+            else torch.tensor(
+                [int(self.data.iloc[idx]["page"] == 1)], dtype=torch.float32
+            )
         )
 
     def _get_context_row_data(self, file_id, center_page, fallback_pages=None):
@@ -420,7 +450,7 @@ class DocumentDataset(Dataset):
 
         # === Labels ===
         labels = self._get_context_labels(file_id, page_num, fallback_df)  # (C,)
-        labels = labels.half()
+        labels = labels.half() if train_in_fp16 else labels.float()
 
         # if page_num == 1:
         #     distance = random.choices(doc_length_bins, weights=doc_length_weights, k=1)[
@@ -431,8 +461,8 @@ class DocumentDataset(Dataset):
         #
 
         distance = sample_shifted_erlang(3, 50, 10)
-
         distance = distance / 700
+
         files_and_pages = self._get_context_row_data(file_id, page_num, fallback_df)
 
         return {
@@ -442,5 +472,9 @@ class DocumentDataset(Dataset):
             "cnn_input": cnn_input,
             "labels": labels,
             "doc_type": torch.tensor(doc_type, dtype=torch.int),
-            "distance": torch.tensor([distance], dtype=torch.float16),
+            "distance": (
+                torch.tensor([distance], dtype=torch.float16)
+                if train_in_fp16
+                else torch.tensor([distance], dtype=torch.float32)
+            ),
         }

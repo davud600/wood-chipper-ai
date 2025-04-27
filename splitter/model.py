@@ -48,23 +48,12 @@ class FusionModel(nn.Module):
         self.reader_model = reader_model or ReaderModel(tokenizer_len=tokenizer_len)
         self.cnn_model = cnn_model or CNNModel(image_size=image_size)
 
-        # self.fusion_mlp = nn.Sequential(
-        #     nn.Linear(3, 8),
-        #     nn.ReLU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(8, 1),
-        # )
-
         self.fusion_mlp = nn.Sequential(
             nn.Linear(3, 8),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(8, 1),
         )
-
-        # self.fusion_mlp = nn.Sequential(
-        #     nn.Linear(3, 1),
-        # )
 
         self.apply(init_weights)
 

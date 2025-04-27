@@ -1,12 +1,15 @@
 import os
+import torch
 import torch.nn as nn
 
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
 from config.settings import (
+    SPLITTER_MODEL_PATH,
     SPLITTER_MODEL_DIR,
     TESTING_DATA_CSV,
+    DOCUMENT_TYPES,
     image_output_size,
 )
 from .config import device, testing_mini_batch_size
@@ -33,35 +36,40 @@ def main():
     global session
 
     print("[INFO] Initializing...")
-
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-    model = FusionModel(image_size=image_output_size).to(device)
-    model.eval()
     print(f"[INFO] Loading model weights from session {session}...")
-    load_best_weights(model, session, True)
-
-    print("[TESTING]")
-    test_dataset = DocumentDataset(
-        TESTING_DATA_CSV,
-        tokenizer,
-        mode="test",
-        image_size=image_output_size,
+    model = FusionModel(image_size=image_output_size).to(device)
+    # load_best_weights(model, session, True)
+    model.load_state_dict(
+        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
     )
-    count_classes(test_dataset)
+    model.eval()
 
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=testing_mini_batch_size * 2,
-    )
-    loss_fn = nn.BCEWithLogitsLoss()
+    for doc_type in list(DOCUMENT_TYPES.values()):
+        print(f"[{list(DOCUMENT_TYPES.keys())[doc_type]}]")
+        test_dataset = DocumentDataset(
+            TESTING_DATA_CSV,
+            tokenizer,
+            mode="test",
+            image_size=image_output_size,
+            doc_types=[doc_type],
+        )
+        # count_classes(test_dataset)
 
-    print("[INFO] Starting testing...")
-    _, acc, rec, prec, f1, cm = evaluate(model, test_loader, loss_fn)
-    print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
-    print(f"  Confusion Matrix:\n{cm}\n")
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=testing_mini_batch_size * 2,
+            num_workers=0,
+        )
+        loss_fn = nn.BCEWithLogitsLoss()
 
-    # for i in range(50):
-    #     verify_alignment(model, tokenizer, test_dataset, i)
+        print("[INFO] Starting testing...")
+        _, acc, rec, prec, f1, cm = evaluate(model, test_loader, loss_fn)
+        print(f"  F1: {f1:.4f} | Acc: {acc:.4f} | Rec: {rec:.4f} | Prec: {prec:.4f}")
+        print(f"  Confusion Matrix:\n{cm}\n")
+
+        # for i in range(50):
+        #     verify_alignment(model, tokenizer, test_dataset, i)
 
 
 if __name__ == "__main__":

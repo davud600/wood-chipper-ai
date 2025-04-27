@@ -17,7 +17,7 @@ from sklearn.metrics import (
 )
 
 from config.settings import SPLITTER_MODEL_DIR
-from .config import device
+from .config import device, train_in_fp16
 from .dataset.dataset import DocumentDataset
 
 
@@ -147,7 +147,8 @@ def evaluate(model, dataloader, loss_fn):
     with torch.no_grad():
         for batch in dataloader:
             with torch.amp.autocast_mode.autocast(
-                device_type="cuda", dtype=torch.float16
+                device_type="cuda",
+                dtype=(torch.float16 if train_in_fp16 else torch.float32),
             ):
                 logits, loss = model.forward(batch, loss_fn)
                 total_loss += loss.item()

@@ -95,6 +95,22 @@ def clean_text(text: str) -> str:
     # Remove sequences of digits with no alphabet around (e.g., timestamps, hex, table IDs)
     text = re.sub(r"\b\d{4,}\b", " ", text)
 
+    # Remove single characters that are surrounded by spaces (unless whitelisted)
+    whitelist = {
+        "a",
+        "i",
+        "A",
+        "I",
+        "U",
+        "S",
+        "T",
+        "F",
+        "G",
+    }  # whitelist common important letters
+    text = " ".join(
+        [word for word in text.split() if len(word) > 1 or word in whitelist]
+    )
+
     text = filter_junky_lines(text)
 
     # Collapse multiple spaces, line breaks, tabs
