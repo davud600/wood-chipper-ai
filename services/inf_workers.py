@@ -9,7 +9,6 @@ from transformers import AutoTokenizer, PreTrainedTokenizer
 from .context_buffer import ContextBuffer
 from config.settings import (
     SPLITTER_MODEL_PATH,
-    SPLITTER_MODEL_DIR,
     max_chars,
     image_output_size,
 )
@@ -27,15 +26,6 @@ from splitter.model import FusionModel
 
 debug_dir = f"debug_batches"
 os.makedirs(debug_dir, exist_ok=True)
-
-session_dirs = [
-    int(d)
-    for d in os.listdir(SPLITTER_MODEL_DIR)
-    if os.path.isdir(os.path.join(SPLITTER_MODEL_DIR, d)) and d.isdigit()
-]
-session = max(session_dirs, default=0)
-
-last_cut_was_separator = False
 
 
 def start_inf_workers(
@@ -93,7 +83,6 @@ def inference_worker(document_context: DocumentContext, pages: int):
 
     # print("loading model...")
     model = FusionModel(image_size=image_output_size).to("cuda")
-    # load_best_weights(model, session, True)
     model.load_state_dict(
         torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
     )
@@ -125,7 +114,6 @@ def inference_worker(document_context: DocumentContext, pages: int):
         images[page] = image
 
         for prime_page in ctx_buff.get_ready_items():
-            # print(f"processing page {page}")
             process_page(
                 document_context,
                 tokenizer,
@@ -180,8 +168,6 @@ def process_page(
         Dictionary mapping page numbers to grayscale image arrays.
     """
 
-    global last_cut_was_separator
-
     # get images & contents of all pages and format them.
     content_batch = ""
 
@@ -205,7 +191,6 @@ def process_page(
             state["sub_doc_count"],
             state["prev_split_page"],
             page,
-            0 if not last_cut_was_separator else 1,
             document_context,
         )
         return
@@ -227,14 +212,10 @@ def process_page(
     #     return
 
     # inference...
-    # print(f"[inference] page {page} - prev page {state["prev_split_page"]}")
     distance = page - state["prev_split_page"]
     found_first_page, offset = is_first_page(
         tokenizer, model, content_batch, distance, image
     )
-
-    if offset > 0:
-        last_cut_was_separator = True
 
     # if first page call func.
     if found_first_page:
@@ -242,7 +223,6 @@ def process_page(
             state["sub_doc_count"],
             state["prev_split_page"],
             page - 1,
-            offset,
             document_context,
         )
         update_state(document_context, page + offset, state["sub_doc_count"] + 1)
@@ -252,7 +232,6 @@ def handle_first_page(
     count: int,
     start_page: int,
     end_page: int,
-    offset: int,
     document_context: DocumentContext,
 ):
     """

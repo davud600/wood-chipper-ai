@@ -73,8 +73,7 @@ def process_request(
         except Exception as e:
             print(e)
 
-    # data = request_data_points(content_batch)
-    data = {}
+    data = request_data_points(content_batch)
     notify_for_finished_processing(
         str(document_context["token"]),
         int(document_context["document_id"]),
