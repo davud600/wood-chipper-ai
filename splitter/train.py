@@ -109,13 +109,13 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         train_dataset,
         batch_size=args.training_mini_batch_size,
         shuffle=True,
-        num_workers=0,
+        num_workers=8,
     )
     test_loader = DataLoader(
         test_dataset,
         batch_size=args.testing_mini_batch_size,
         shuffle=True,
-        num_workers=0,
+        num_workers=8,
     )
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
     # loss_fn = nn.BCEWithLogitsLoss()

@@ -8,8 +8,8 @@ print("device:", device)
 use_fp16 = True
 use_all_types = False
 
-training_mini_batch_size = 3
-testing_mini_batch_size = 3
+training_mini_batch_size = 16
+testing_mini_batch_size = 16
 
 lr_cnn = 0.01
 wd_cnn = 0.00005
