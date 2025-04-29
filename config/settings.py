@@ -9,7 +9,7 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_URL = os.getenv("API_URL")
 
-max_length = 512
+max_length = 2048
 prev_pages_to_append = 1
 pages_to_append = 1
 max_vocab_size = 60000
@@ -22,9 +22,9 @@ image_output_size = (1024, 1024)
 
 
 max_chars = {
-    "curr_page": 1024,
-    "prev_page": 512,
-    "next_page": 512,
+    "curr_page": 2048,
+    "prev_page": 1024,
+    "next_page": 1024,
 }
 
 special_tokens = [
@@ -100,4 +100,5 @@ DOCUMENT_TYPES = {
     "transfer-document": 15,
 }
 
-BEST_PERF_TYPES = [0, 1, 2, 3, 4, 5, 6, 7, 11]
+# BEST_PERF_TYPES = [0, 1, 2, 3, 4, 5, 6, 7, 11]
+BEST_PERF_TYPES = [0, 1, 2, 3, 4, 5, 6]

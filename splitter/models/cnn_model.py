@@ -17,24 +17,6 @@ class CNNModel(nn.Module):
         self.title = "cnn"
         self.in_channels = 1
 
-        # v1
-        # self.conv_block = nn.Sequential(
-        #     nn.Conv2d(self.in_channels, 16, kernel_size=3, stride=1, padding=1),
-        #     nn.BatchNorm2d(16),
-        #     nn.ReLU(inplace=True),
-        #     nn.MaxPool2d(2),
-        #     nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
-        #     nn.BatchNorm2d(32),
-        #     nn.ReLU(inplace=True),
-        #     nn.MaxPool2d(2),
-        #     nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-        #     nn.BatchNorm2d(64),
-        #     nn.ReLU(inplace=True),
-        #     nn.MaxPool2d(2),
-        #     nn.Dropout2d(dropout),
-        # )
-
-        # v2
         self.conv_block = nn.Sequential(
             nn.Conv2d(self.in_channels, 24, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(24),
@@ -69,15 +51,6 @@ class CNNModel(nn.Module):
             dummy_out = self.conv_block(dummy)
             self.flattened_dim = dummy_out.view(1, -1).shape[1]
 
-        # v1
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(64, 32),
-        #     nn.ReLU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(32, 1),
-        # )
-
-        # v2
         self.classifier = nn.Sequential(
             nn.Linear(96, 48),
             nn.ReLU(),

@@ -10,7 +10,7 @@ from ..utils import init_weights
 class ReaderModel(nn.Module):
     def __init__(
         self,
-        model_name: str = "distilbert-base-uncased",
+        model_name: str = "allenai/longformer-base-4096",
         dropout: float = 0.1,
         tokenizer_len: int | None = None,
     ):

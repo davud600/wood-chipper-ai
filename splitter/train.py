@@ -109,13 +109,13 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         train_dataset,
         batch_size=args.training_mini_batch_size,
         shuffle=True,
-        num_workers=12,
+        num_workers=0,
     )
     test_loader = DataLoader(
         test_dataset,
         batch_size=args.testing_mini_batch_size,
         shuffle=True,
-        num_workers=12,
+        num_workers=0,
     )
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
     # loss_fn = nn.BCEWithLogitsLoss()
@@ -311,7 +311,7 @@ if __name__ == "__main__":
 
     print("[INFO] Initializing...")
 
-    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+    tokenizer = AutoTokenizer.from_pretrained("allenai/longformer-base-4096")
     model = FusionModel(image_size=image_output_size, tokenizer_len=len(tokenizer)).to(
         device
     )
