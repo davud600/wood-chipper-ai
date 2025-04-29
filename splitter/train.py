@@ -26,8 +26,8 @@ from .config import (
     lr_mlp,
     wd_mlp,
     pw_multiplier,
-    train_in_fp16,
-    train_with_all_data,
+    use_fp16,
+    use_all_types,
 )
 from .utils import count_classes, evaluate, load_best_weights
 from .model import FusionModel
@@ -120,7 +120,6 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
     # loss_fn = nn.BCEWithLogitsLoss()
 
-    # opt_mlp = optim.AdamW(model.parameters(), lr=args.lr_mlp, weight_decay=args.wd_mlp)
     opt_mlp = optim.AdamW(
         [
             {
@@ -210,7 +209,7 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
 
     with torch.amp.autocast_mode.autocast(
         device_type=str(device),
-        dtype=(torch.float16 if train_in_fp16 else torch.float32),
+        dtype=(torch.float16 if use_fp16 else torch.float32),
     ):
 
         step = 0
@@ -250,15 +249,6 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
                     step,
                     epoch + (epoch_step / len(train_loader)),
                 )
-
-        # decay = 0.1
-        # for pg in opt_cnn.param_groups:
-        #     pg["lr"] *= decay
-        # print("[CNN] new lr:", [pg["lr"] for pg in opt_cnn.param_groups])
-        #
-        # for pg in opt_llm.param_groups:
-        #     pg["lr"] *= decay
-        # print("[LLM] new lr:", [pg["lr"] for pg in opt_llm.param_groups])
 
         step = 0
         load_best_weights(model, session)
@@ -325,6 +315,7 @@ if __name__ == "__main__":
     model = FusionModel(image_size=image_output_size, tokenizer_len=len(tokenizer)).to(
         device
     )
+    load_best_weights(model, session, True)
 
     print(f"[check] model on: {next(model.parameters()).device}")
 
@@ -334,7 +325,7 @@ if __name__ == "__main__":
         tokenizer,
         mode="train",
         image_size=image_output_size,
-        doc_types=(None if train_with_all_data else BEST_PERF_TYPES),
+        doc_types=(None if use_all_types else BEST_PERF_TYPES),
     )
     n1, n0 = count_classes(train_dataset)
 
@@ -344,14 +335,14 @@ if __name__ == "__main__":
         tokenizer,
         mode="test",
         image_size=image_output_size,
-        doc_types=(None if train_with_all_data else BEST_PERF_TYPES),
+        doc_types=(None if use_all_types else BEST_PERF_TYPES),
     )
     count_classes(test_dataset)
 
     args = parse_args()
     pw = torch.tensor(
         [(n0 / n1) * args.pw_multiplier],
-        dtype=(torch.float16 if train_in_fp16 else torch.float32),
+        dtype=(torch.float16 if use_fp16 else torch.float32),
     ).to(device)
 
     train_loop(

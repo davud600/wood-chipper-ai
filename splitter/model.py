@@ -58,26 +58,15 @@ class FusionModel(nn.Module):
         self.apply(init_weights)
 
     def forward(self, data, loss_fn=None, warmup=False, return_all_logits=False):
-        llm_logits = self.reader_model(data)  # (B, 1)
-        cnn_logits = self.cnn_model(data)  # (B, 1)
-
+        llm_logits = self.reader_model(data)  # (b, 1)
+        cnn_logits = self.cnn_model(data)  # (b, 1)
         distance = data["distance"]
-        # if self.training:
-        #     distance += torch.randn_like(data["distance"]) * 0.001
-
-        # 🔥 MLP fusion CNN + LLM inputs & other inputs.
-
-        # print("distance", distance.shape)
-        # print("cnn_logits", cnn_logits.shape)
-        # print("llm_logits", llm_logits.shape)
 
         stack = torch.cat(
             [
                 distance.to(device),
                 cnn_logits,
                 llm_logits,
-                # torch.sigmoid(cnn_logits),
-                # torch.sigmoid(llm_logits),
             ],
             dim=1,
         )
@@ -101,4 +90,4 @@ class FusionModel(nn.Module):
 
             return logits, loss
 
-        return logits  # (B, 1)
+        return logits  # (b, 1)

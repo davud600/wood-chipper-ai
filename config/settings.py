@@ -9,7 +9,6 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_URL = os.getenv("API_URL")
 
-# max_length = 3064
 max_length = 512
 prev_pages_to_append = 1
 pages_to_append = 1
@@ -19,9 +18,7 @@ ocr_workers = 2
 inf_workers = 1  # this can not be bigger than 1.
 ocr_batch_size = 2
 pages_to_skip_after_finding_first_page = 2
-# image_output_size = (1000, 800)  # upscale this when processing dataset.
 image_output_size = (1024, 1024)
-# image_output_size = (512, 512)
 
 
 max_chars = {
@@ -46,29 +43,15 @@ DELETE_REDIS_KEYS_TIMEOUT = 60
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CORPUS_FILE = os.path.join(project_root, "data", "dataset", "corpus.txt")
 TOKENIZER_PATH = os.path.join(project_root, "models", "tokenizer.pkl")
-
-# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
 SPLITTER_MODEL_PATH = os.path.join(
-    project_root, "data", "models", "splitter_all_types.pth"
+    project_root, "data", "models", "splitter_all_types_2.pth"
 )
-
-# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
-# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter.pth")
 # SPLITTER_MODEL_PATH = os.path.join(
 #     project_root, "data", "models", "splitter_all_types.pth"
 # )
 # SPLITTER_MODEL_PATH = os.path.join(
-#     project_root, "data", "models", "splitter_multi_class.pth"
+#     project_root, "data", "models", "splitter_best_types.pth"
 # )
-# SPLITTER_MODEL_PATH = os.path.join(
-#     project_root, "data", "models", "splitter_single_class.pth"
-# )
-
-# LATESET BEST MODEL TRAINED ON ALL DATA
-# SPLITTER_MODEL_PATH = os.path.join(
-#     project_root, "data", "models", "splitter_single_class_all_data.pth"
-# )
-# SPLITTER_MODEL_PATH = os.path.join(project_root, "data", "models", "splitter_381.pth")
 SPLITTER_MODEL_DIR = os.path.join(project_root, "data", "models")
 
 DOWNLOADS_DIR = os.path.join(project_root, "data", "downloads")

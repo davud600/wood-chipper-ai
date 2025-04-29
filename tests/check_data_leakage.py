@@ -71,10 +71,19 @@ if __name__ == "__main__":
     test_data = pd.read_csv(TESTING_DATA_CSV)
     test_sum = 0
 
-    for doc_type in train_data["type"].tolist():
+    # for doc_type in train_data["type"].tolist():
+    #     train_sum += 1
+    #     train_type_counters[int(doc_type)] += 1
+
+    unique_files = train_data["file"].unique()
+    for file in unique_files:
+        doc_type = train_data[train_data["file"] == file]["type"].iloc[0]  # type: ignore
         train_sum += 1
         train_type_counters[int(doc_type)] += 1
-    for doc_type in test_data["type"].tolist():
+
+    unique_files = test_data["file"].unique()
+    for file in unique_files:
+        doc_type = test_data[test_data["file"] == file]["type"].iloc[0]  # type: ignore
         test_sum += 1
         test_type_counters[int(doc_type)] += 1
 

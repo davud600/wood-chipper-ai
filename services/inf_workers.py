@@ -187,15 +187,15 @@ def process_page(
 
     for i, prev_page in enumerate(prev_pages):
         prev_content = get_page_content(document_context, prev_page)
-        content_batch += f"<prev_page_{len(prev_pages) - i}>{prev_content[:max_chars["prev_page"]]}</prev_page_{len(prev_pages) - i}>"
+        content_batch += f"<prev_page_{len(prev_pages) - i}>{prev_content[:max_chars['prev_page']]}</prev_page_{len(prev_pages) - i}>"
 
     image = images.get(page)
     content = get_page_content(document_context, page)
-    content_batch += f"<curr_page>{content[:max_chars["curr_page"]]}</curr_page>"
+    content_batch += f"<curr_page>{content[:max_chars['curr_page']]}</curr_page>"
 
     for i, next_page in enumerate(next_pages):
         next_content = get_page_content(document_context, next_page)
-        content_batch += f"<next_page_{i + 1}>{next_content[:max_chars["next_page"]]}</next_page_{i + 1}>"
+        content_batch += f"<next_page_{i + 1}>{next_content[:max_chars['next_page']]}</next_page_{i + 1}>"
 
     # inference if not last or first page of doc.
     state = get_state(document_context)
@@ -285,19 +285,19 @@ def handle_first_page(
         {
             "transactionId": int(document_context["transaction_id"]),
             "parentDocumentId": int(document_context["document_id"]),
-            "originalFileName": f"{str(document_context["file_name"]).replace('.pdf', '')}-{count}.pdf",
+            "originalFileName": f"{str(document_context['file_name']).replace('.pdf', '')}-{count}.pdf",
         },
     )
 
     # update redis keys for doc contents to be used later on processing step.
     for i in range((end_page - start_page) + 1):
         raw = redis.get(
-            f"page_content:{document_context["document_id"]}:{i + start_page}"
+            f"page_content:{document_context['document_id']}:{i + start_page}"
         )
         page_content: str = raw.decode("utf-8") if raw else ""  # type: ignore
 
         print(
-            f"page_content:{document_context["document_id"]}:{i + start_page} ({str(page_content)[:25]}...) => page_content:{document_id}:{i}"
+            f"page_content:{document_context['document_id']}:{i + start_page} ({str(page_content)[:25]}...) => page_content:{document_id}:{i}"
         )
 
         redis.set(
@@ -314,7 +314,7 @@ def handle_first_page(
 
 
 def get_page_content(document_context: DocumentContext, page: int) -> str:
-    raw = redis.get(f"page_content:{document_context["document_id"]}:{page}")
+    raw = redis.get(f"page_content:{document_context['document_id']}:{page}")
     return raw.decode("utf-8") if raw else ""  # type: ignore
 
 

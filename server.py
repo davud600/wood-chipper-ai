@@ -5,6 +5,13 @@ import threading
 
 from api import process_request, split_request
 
+# Warm EasyOCR models
+print("Warming EasyOCR models...")
+import easyocr
+
+reader = easyocr.Reader(["en"], gpu=True)
+print("EasyOCR models ready.")
+
 
 # --------------------------------------------------------
 # CONFIGURATION

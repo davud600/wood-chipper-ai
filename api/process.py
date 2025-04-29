@@ -43,7 +43,7 @@ def process_request(
         # )
         contents += [page_content]
 
-    document_context["file_name"] = f"{document_context["document_id"]}.pdf"
+    document_context["file_name"] = f"{document_context['document_id']}.pdf"
     # print(f"{document_context['file_name']} - {len(contents) > 0}")
 
     content_batch = ""
@@ -82,6 +82,6 @@ def process_request(
     )
 
     # delete redis keys.
-    keys_to_delete = redis.keys(f"*:{document_context["document_id"]}*")
+    keys_to_delete = redis.keys(f"*:{document_context['document_id']}*")
     if keys_to_delete:
         redis.delete(*keys_to_delete)  # type: ignore

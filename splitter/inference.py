@@ -11,8 +11,10 @@ if TYPE_CHECKING:
     from .model import FusionModel
 
 
-from .config import device
+from .config import use_fp16
 from config.settings import max_length, image_output_size
+
+dtype = torch.float16 if use_fp16 else torch.float32
 
 
 def is_first_page(
@@ -69,14 +71,7 @@ def is_first_page(
     #
     # return False, 0
 
-    # if "newdocument" in b:
-    #     # print(f"\nfound start of new doc page")
-    #     # print(b)
-    #     return True, 0
-    # else:
-    #     return False, 0
-
-    if prev_first_page_distance < 3:
+    if prev_first_page_distance < 4:
         return False, 0
 
     transform = transforms.Compose(
@@ -85,7 +80,7 @@ def is_first_page(
             transforms.Resize(image_output_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5], std=[0.5]),
-            transforms.ConvertImageDtype(torch.float16),
+            transforms.ConvertImageDtype(dtype),
         ]
     )
 
@@ -99,21 +94,17 @@ def is_first_page(
     input_ids = encoding["input_ids"].to("cuda")  # type: ignore
     attention_mask = encoding["attention_mask"].to("cuda")  # type: ignore
     distance = prev_first_page_distance / 700
-    distance = torch.tensor([[distance]], dtype=torch.float16).to(
-        "cuda"
-    )  # shape (1, 1)
+    distance = torch.tensor([[distance]], dtype=dtype).to("cuda")  # shape (1, 1)
 
     cnn_input = (
         transform(Image.fromarray(image))
         if image is not None
         else transform(
-            Image.fromarray(torch.zeros(image_output_size, dtype=torch.float16))  # type: ignore
+            Image.fromarray(torch.zeros(image_output_size, dtype=dtype))  # type: ignore
         )
     )
 
-    with torch.amp.autocast_mode.autocast(
-        device_type="cuda", dtype=torch.float16
-    ) and torch.no_grad():
+    with torch.amp.autocast_mode.autocast(device_type="cuda", dtype=dtype):
         logits = model(
             {
                 "input_ids": input_ids,
@@ -123,5 +114,5 @@ def is_first_page(
             }
         )
 
-    print("pred_prob", torch.sigmoid(logits).detach().cpu().numpy())
+    print(f"pred_prob: {torch.sigmoid(logits).detach().cpu().numpy().item():.4f}")
     return bool(torch.sigmoid(logits) > 0.5), 0

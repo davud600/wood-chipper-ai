@@ -30,7 +30,7 @@ class ContextBuffer:
 
             context_keys = [prime + i for i in range(-self.prev_n, self.next_n + 1)]
             if all(k in self.buffer for k in context_keys):
-                context = [self.buffer[k] for k in context_keys]
+                # context = [self.buffer[k] for k in context_keys]
                 ready.append(prime)
 
         return ready

@@ -32,19 +32,6 @@ class ReaderModel(nn.Module):
             nn.Linear(32, 1),
         )
 
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(self.config.hidden_size * 2, 128),
-        #     nn.GELU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(128, 64),
-        #     nn.ReLU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(64, 32),
-        #     nn.ReLU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(32, 1),
-        # )
-
         self.apply(init_weights)
 
     def forward(self, data, loss_fn=None):
@@ -52,17 +39,11 @@ class ReaderModel(nn.Module):
             input_ids=data["input_ids"].to(device),
             attention_mask=data["attention_mask"].to(device),
         )
-
         hidden_state = outputs.last_hidden_state
         cls_rep = torch.cat(
             [hidden_state[:, 0], hidden_state.mean(dim=1)],
             dim=-1,
         )
-
-        # cls_rep = torch.cat(
-        #     [hidden_state[:, 0], hidden_state.mean(dim=1), data["distance"].to(device)],
-        #     dim=-1,
-        # )
 
         logits = self.classifier(cls_rep)  # (b, 1)
 

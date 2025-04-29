@@ -9,7 +9,7 @@ def download_s3_file(signed_get_url: str, output_filename: str) -> str:
 
     file_path = os.path.join(DOWNLOADS_DIR, output_filename)
 
-    response = requests.get(signed_get_url)
+    response = requests.get(signed_get_url.replace("localhost", "minio"))
     if not response.ok:
         raise Exception("Failed to fetch document from S3.")
 
