@@ -6,7 +6,7 @@ from type_defs.shared import SharedQueues
 
 from .config import redis
 
-max_image_queue_size = 8
+max_image_queue_size = 32
 
 
 def encode_content_queue_item(page: int, image: np.ndarray) -> bytes:

@@ -1,16 +1,18 @@
 import multiprocessing
 import numpy as np
-import torch
+
+# import torch
 import os
 
 from typing import Dict
-from transformers import AutoTokenizer, PreTrainedTokenizer
+
+# from transformers import AutoTokenizer, PreTrainedTokenizer
 
 from .context_buffer import ContextBuffer
 from config.settings import (
-    SPLITTER_MODEL_PATH,
+    # SPLITTER_MODEL_PATH,
     max_chars,
-    image_output_size,
+    # image_output_size,
 )
 from type_defs.shared import DocumentContext, SharedQueues, InferWorkerState
 from lib.redis import redis
@@ -22,7 +24,8 @@ from lib.doc_tools import create_sub_document
 from lib.document_records import create_document_record, add_document_to_client_queue
 from lib.s3 import upload_file_to_s3
 from splitter.inference import is_first_page
-from splitter.model import FusionModel
+
+# from splitter.model import FusionModel
 
 debug_dir = f"debug_batches"
 os.makedirs(debug_dir, exist_ok=True)
@@ -112,6 +115,7 @@ def inference_worker(document_context: DocumentContext, pages: int):
         page, image = decode_content_queue_item(item)
         ctx_buff.push(page)
         images[page] = image
+        print(f"[inf] {page}")
 
         for prime_page in ctx_buff.get_ready_items():
             process_page(

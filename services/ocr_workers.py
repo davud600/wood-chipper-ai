@@ -76,14 +76,11 @@ def ocr_worker(document_context: DocumentContext, batch_size: int):
                 process_batch(document_context, images_batch)
                 images_batch = []
 
-            # print("exitting (ocr) image queue consumer thread...")
             break
 
         page, image = decode_image_queue_item(item)
         images_batch += [(page, image)]
-        # print(
-        #     f"(ocr) #{document_context["document_id"]} {[page for page, _ in images_batch]}"
-        # )
+        print(f"[ocr] {page}")
 
         if len(images_batch) >= batch_size:
             process_batch(document_context, images_batch)

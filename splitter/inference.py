@@ -66,7 +66,6 @@ def is_first_page(
         # or "this serves as an" in b
         # or "indicator of the starting of new document" in content.lower()
     ):
-        print(f"{b[:100]}...")
         return True, 1
 
     return False, 0

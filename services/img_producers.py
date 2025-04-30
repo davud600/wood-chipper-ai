@@ -87,6 +87,7 @@ def image_producer(document: "Document", page: int, document_context: DocumentCo
         if img is None:
             return
 
+        print(f"[img] {page}")
         encoded_img = encode_image_queue_item(page, img)
         shared_queue_push(
             document_context["document_id"], SharedQueues.Images, encoded_img
