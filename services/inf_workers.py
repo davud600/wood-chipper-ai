@@ -79,14 +79,14 @@ def inference_worker(document_context: DocumentContext, pages: int):
     """
 
     # print("loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+    # tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
     # print("loading model...")
-    model = FusionModel(image_size=image_output_size).to("cuda")
-    model.load_state_dict(
-        torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
-    )
-    model.eval()
+    # model = FusionModel(image_size=image_output_size).to("cuda")
+    # model.load_state_dict(
+    #     torch.load(SPLITTER_MODEL_PATH, weights_only=False, map_location="cuda")
+    # )
+    # model.eval()
 
     ctx_buff = ContextBuffer()
     images: Dict[int, np.ndarray] = {}
@@ -98,8 +98,8 @@ def inference_worker(document_context: DocumentContext, pages: int):
             for prime_page in ctx_buff.buffer:
                 process_page(
                     document_context,
-                    tokenizer,
-                    model,
+                    # tokenizer,
+                    # model,
                     prime_page,
                     ctx_buff.get_prev_items(prime_page),
                     ctx_buff.get_next_items(prime_page),
@@ -116,8 +116,8 @@ def inference_worker(document_context: DocumentContext, pages: int):
         for prime_page in ctx_buff.get_ready_items():
             process_page(
                 document_context,
-                tokenizer,
-                model,
+                # tokenizer,
+                # model,
                 prime_page,
                 ctx_buff.get_prev_items(prime_page),
                 ctx_buff.get_next_items(prime_page),
@@ -129,8 +129,8 @@ def inference_worker(document_context: DocumentContext, pages: int):
 
 def process_page(
     document_context: "DocumentContext",
-    tokenizer: PreTrainedTokenizer,
-    model: FusionModel,
+    # tokenizer: PreTrainedTokenizer,
+    # model: FusionModel,
     page: int,
     prev_pages,
     next_pages,
@@ -213,9 +213,10 @@ def process_page(
 
     # inference...
     distance = page - state["prev_split_page"]
-    found_first_page, offset = is_first_page(
-        tokenizer, model, content_batch, distance, image
-    )
+    # found_first_page, offset = is_first_page(
+    #     tokenizer, model, content_batch, distance, image
+    # )
+    found_first_page, offset = is_first_page(content_batch, distance, image)
 
     # if first page call func.
     if found_first_page:

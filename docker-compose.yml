@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
   server:
+    container_name: wood-chipper-ai-server
     build:
       context: .
       dockerfile: Dockerfile

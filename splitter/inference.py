@@ -18,8 +18,8 @@ dtype = torch.float16 if use_fp16 else torch.float32
 
 
 def is_first_page(
-    tokenizer: "PreTrainedTokenizer",
-    model: "FusionModel",
+    # tokenizer: "PreTrainedTokenizer",
+    # model: "FusionModel",
     content: str,
     prev_first_page_distance: int,
     image: np.ndarray | None,
@@ -53,23 +53,23 @@ def is_first_page(
         Page offset (currently unused and always 0).
     """
 
-    # try:
-    #     a = content.split("</prev_page_1>")[1].lower()
-    #     b = a.split("</curr_page>")[0]
-    # except:
-    #     return False, 0
+    try:
+        a = content.split("</prev_page_1>")[1].lower()
+        b = a.split("</curr_page>")[0]
+    except:
+        return False, 0
 
-    # if (
-    #     "newdocumentseparator"
-    #     in b
-    #     # or "indicator of the starting of new document" in content.lower()
-    #     # or "this serves as an" in b
-    #     # or "indicator of the starting of new document" in content.lower()
-    # ):
-    #     print(f"{b[:100]}...")
-    #     return True, 1
-    #
-    # return False, 0
+    if (
+        "newdocumentseparator"
+        in b
+        # or "indicator of the starting of new document" in content.lower()
+        # or "this serves as an" in b
+        # or "indicator of the starting of new document" in content.lower()
+    ):
+        print(f"{b[:100]}...")
+        return True, 1
+
+    return False, 0
 
     if prev_first_page_distance < 4:
         return False, 0
