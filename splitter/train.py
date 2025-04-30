@@ -40,6 +40,8 @@ from config.settings import (
     image_output_size,
 )
 
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
 session_dirs = [
     int(d)
     for d in os.listdir(SPLITTER_MODEL_DIR)
@@ -109,13 +111,13 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         train_dataset,
         batch_size=args.training_mini_batch_size,
         shuffle=True,
-        num_workers=8,
+        num_workers=12,
     )
     test_loader = DataLoader(
         test_dataset,
         batch_size=args.testing_mini_batch_size,
         shuffle=True,
-        num_workers=8,
+        num_workers=12,
     )
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
     # loss_fn = nn.BCEWithLogitsLoss()
@@ -132,11 +134,11 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
                 "lr": args.lr_llm,
                 "weight_decay": args.wd_llm,
             },
-            {
-                "params": model.cnn_model.parameters(),
-                "lr": args.lr_cnn,
-                "weight_decay": args.wd_cnn,
-            },
+            # {
+            #     "params": model.cnn_model.parameters(),
+            #     "lr": args.lr_cnn,
+            #     "weight_decay": args.wd_cnn,
+            # },
             {
                 "params": model.fusion_mlp.parameters(),
                 "lr": args.lr_mlp,
@@ -149,12 +151,12 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         opt_mlp, patience=patience, factor=factor
     )
 
-    opt_cnn = optim.AdamW(
-        model.cnn_model.parameters(), lr=args.lr_cnn, weight_decay=args.wd_cnn
-    )
-    sched_cnn = optim.lr_scheduler.ReduceLROnPlateau(
-        opt_cnn, patience=patience, factor=factor
-    )
+    # opt_cnn = optim.AdamW(
+    #     model.cnn_model.parameters(), lr=args.lr_cnn, weight_decay=args.wd_cnn
+    # )
+    # sched_cnn = optim.lr_scheduler.ReduceLROnPlateau(
+    #     opt_cnn, patience=patience, factor=factor
+    # )
 
     opt_llm = torch.optim.AdamW(
         [
@@ -212,24 +214,24 @@ def train_loop(model, train_dataset, test_dataset, pw, args):
         dtype=(torch.float16 if use_fp16 else torch.float32),
     ):
 
-        step = 0
-        for epoch in range(args.isolated_epochs_cnn):
-            model.train()
-            epoch_step = 0
-            for batch in train_loader:
-                step += 1
-                epoch_step += 1
-                step_model(
-                    model.cnn_model,
-                    opt_cnn,
-                    sched_cnn,
-                    scaler,
-                    batch,
-                    test_loader,
-                    loss_fn,
-                    step,
-                    epoch + (epoch_step / len(train_loader)),
-                )
+        # step = 0
+        # for epoch in range(args.isolated_epochs_cnn):
+        #     model.train()
+        #     epoch_step = 0
+        #     for batch in train_loader:
+        #         step += 1
+        #         epoch_step += 1
+        #         step_model(
+        #             model.cnn_model,
+        #             opt_cnn,
+        #             sched_cnn,
+        #             scaler,
+        #             batch,
+        #             test_loader,
+        #             loss_fn,
+        #             step,
+        #             epoch + (epoch_step / len(train_loader)),
+        #         )
 
         step = 0
         for epoch in range(args.isolated_epochs_llm):

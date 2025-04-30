@@ -59,11 +59,11 @@ def load_best_weights(model: "FusionModel", session: int, fusion_model: bool = F
 
         return
 
-    best_cnn = find_best_file(str(model.cnn_model.title))
-    if best_cnn:
-        path = os.path.join(session_dir, best_cnn)
-        state = torch.load(path, map_location=device)
-        model.cnn_model.load_state_dict(state)
+    # best_cnn = find_best_file(str(model.cnn_model.title))
+    # if best_cnn:
+    #     path = os.path.join(session_dir, best_cnn)
+    #     state = torch.load(path, map_location=device)
+    #     model.cnn_model.load_state_dict(state)
 
     best_llm = find_best_file(str(model.reader_model.title))
     if best_llm:

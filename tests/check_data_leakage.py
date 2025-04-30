@@ -77,7 +77,8 @@ if __name__ == "__main__":
 
     unique_files = train_data["file"].unique()
     for file in unique_files:
-        doc_type = train_data[train_data["file"] == file]["type"].iloc[0]  # type: ignore
+        # doc_type = train_data[train_data["file"] == file]["type"].iloc[0]  # type: ignore
+        doc_type = train_data[train_data["file"] == file]["type"].iloc[0]
         train_sum += 1
         train_type_counters[int(doc_type)] += 1
 

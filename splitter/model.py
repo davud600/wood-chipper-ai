@@ -46,26 +46,26 @@ class FusionModel(nn.Module):
         super(FusionModel, self).__init__()
         self.title = "mlp"
         self.reader_model = reader_model or ReaderModel(tokenizer_len=tokenizer_len)
-        self.cnn_model = cnn_model or CNNModel(image_size=image_size)
+        # self.cnn_model = cnn_model or CNNModel(image_size=image_size)
 
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(3, 8),
+            nn.Linear(2, 4),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(8, 1),
+            nn.Linear(4, 1),
         )
 
         self.apply(init_weights)
 
     def forward(self, data, loss_fn=None, warmup=False, return_all_logits=False):
         llm_logits = self.reader_model(data)  # (b, 1)
-        cnn_logits = self.cnn_model(data)  # (b, 1)
+        # cnn_logits = self.cnn_model(data)  # (b, 1)
         distance = data["distance"]
 
         stack = torch.cat(
             [
                 distance.to(device),
-                cnn_logits,
+                # cnn_logits,
                 llm_logits,
             ],
             dim=1,
@@ -80,13 +80,16 @@ class FusionModel(nn.Module):
 
             fused_loss = loss_fn(logits, labels)
             aux_llm_loss = loss_fn(llm_logits, labels)
-            aux_cnn_loss = loss_fn(cnn_logits, labels)
 
             alpha = 0.5
-            loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
+            # loss = fused_loss + alpha * (aux_llm_loss + aux_cnn_loss)
+            loss = fused_loss + (alpha * aux_llm_loss)
+
+            # if return_all_logits:
+            #     return logits, cnn_logits, llm_logits, loss
 
             if return_all_logits:
-                return logits, cnn_logits, llm_logits, loss
+                return logits, llm_logits, loss
 
             return logits, loss
 

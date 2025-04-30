@@ -8,16 +8,16 @@ print("device:", device)
 use_fp16 = True
 use_all_types = False
 
-training_mini_batch_size = 16
-testing_mini_batch_size = 16
+training_mini_batch_size = 30
+testing_mini_batch_size = 30
 
 lr_cnn = 0.01
 wd_cnn = 0.00005
 isolated_epochs_cnn = 0
 
 lr_llm = 0.005
-wd_llm = 0.0001
-isolated_epochs_llm = 2
+wd_llm = 0.0002
+isolated_epochs_llm = 0
 
 lr_mlp = 0.00005
 wd_mlp = 0.000125

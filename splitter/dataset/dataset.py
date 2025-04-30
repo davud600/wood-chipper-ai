@@ -356,7 +356,7 @@ class DocumentDataset(Dataset):
         attention_mask = encoding["attention_mask"].squeeze(0)
 
         # === Build image context ===
-        cnn_input = self._get_context_images(file_id, page_num)  # (h, w)
+        # cnn_input = self._get_context_images(file_id, page_num)  # (h, w)
 
         # === Labels ===
         labels = self._get_context_labels(file_id, page_num, fallback_df)  # (c,)
@@ -372,7 +372,7 @@ class DocumentDataset(Dataset):
             "files_and_pages": files_and_pages,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
-            "cnn_input": cnn_input,
+            # "cnn_input": cnn_input,
             "labels": labels,
             "doc_type": torch.tensor(doc_type, dtype=torch.int),
             "distance": (
