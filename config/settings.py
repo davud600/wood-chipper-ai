@@ -13,10 +13,10 @@ max_length = 512
 prev_pages_to_append = 1
 pages_to_append = 1
 max_vocab_size = 60000
-img_workers = 1
+img_workers = 2
 ocr_workers = 2
-inf_workers = 1  # this can not be bigger than 1.
-ocr_batch_size = 4
+inf_workers = 1
+ocr_batch_size = 2
 image_output_size = (1024, 1024)
 
 

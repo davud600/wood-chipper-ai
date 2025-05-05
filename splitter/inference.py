@@ -2,13 +2,14 @@ import torch
 import numpy as np
 
 from torchvision import transforms
-from PIL import Image
 
-from typing import TYPE_CHECKING
+# from PIL import Image
 
-if TYPE_CHECKING:
-    from transformers import PreTrainedTokenizer
-    from .model import FusionModel
+# from typing import TYPE_CHECKING
+
+# if TYPE_CHECKING:
+#     from transformers import PreTrainedTokenizer
+#     from .model import FusionModel
 
 
 from .config import use_fp16

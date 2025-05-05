@@ -1,8 +1,9 @@
+import lib.redis.queue as redis_queue
+
 from config.settings import img_workers, ocr_workers, inf_workers, ocr_batch_size
 from type_defs.shared import DocumentContext, SharedQueues
 
 from lib.redis import redis
-from lib.redis.queues import shared_queue_push
 from services import start_img_producers, start_ocr_workers, start_inf_workers
 
 
@@ -65,13 +66,13 @@ def process_pages_pipeline(
         process.join()
 
     for _ in ocr_processes:
-        shared_queue_push(document_context["document_id"], SharedQueues.Images, None)
+        redis_queue.push(document_context["document_id"], SharedQueues.Images, None)
 
     for process in ocr_processes:
         process.join()
 
     for _ in inf_processes:
-        shared_queue_push(document_context["document_id"], SharedQueues.Contents, None)
+        redis_queue.push(document_context["document_id"], SharedQueues.Contents, None)
 
     for process in inf_processes:
         process.join()

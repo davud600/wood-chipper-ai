@@ -1,7 +1,8 @@
 import numpy as np
 import easyocr
 import fitz
-import time
+
+# import time
 import os
 
 
@@ -45,6 +46,7 @@ def convert_pdf_page_to_image(
         # img = binarize(img)
 
         return img
+
     except Exception as e:
         print(f"failed to convert page to image {file_name}, page {page}:", e)
 
@@ -81,6 +83,7 @@ def get_image_batch_contents(images: list[np.ndarray]) -> list[str]:
                 non_empty_index += 1
 
         return contents
+
     except Exception as e:
         print(f"failed to get image conents:", e)
 
@@ -102,6 +105,7 @@ def get_image_contents(image: np.ndarray) -> str:
         content = content.replace("\n", " ")
 
         return content
+
     except Exception as e:
         print(f"failed to get image conents:", e)
 

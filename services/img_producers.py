@@ -2,14 +2,15 @@ import numpy as np
 import multiprocessing
 import fitz
 
+import lib.redis.queue as redis_queue
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from fitz import open as Document
 
+from lib.redis.utils import encode_page_number, set_page_image
 from type_defs.shared import DocumentContext, SharedQueues
-
-from lib.redis.queues import encode_image_queue_item, shared_queue_push
 from lib.doc_tools import convert_pdf_page_to_image
 
 
@@ -79,6 +80,9 @@ def image_producer(document: "Document", page: int, document_context: DocumentCo
         Metadata for the document being processed.
     """
 
+    document_id = int(document_context["document_id"])
+    encoded = encode_page_number(page)
+
     try:
         img = convert_pdf_page_to_image(
             str(document_context["file_name"]), page, document
@@ -88,14 +92,11 @@ def image_producer(document: "Document", page: int, document_context: DocumentCo
             return
 
         print(f"[img] {page}")
-        encoded_img = encode_image_queue_item(page, img)
-        shared_queue_push(
-            document_context["document_id"], SharedQueues.Images, encoded_img
-        )
-        # print(f"[img] page {page} queued.")
+        set_page_image(document_id, page, img)
+
     except Exception as e:
-        encoded_img = encode_image_queue_item(page, np.array([]))
-        shared_queue_push(
-            document_context["document_id"], SharedQueues.Images, encoded_img
-        )
-        # print("error in image producer:", e)
+        print(f"[img] {page} error: {e}")
+        set_page_image(document_id, page, np.array([]))
+
+    finally:
+        redis_queue.push(document_id, SharedQueues.Images, encoded)

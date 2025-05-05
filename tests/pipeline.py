@@ -35,8 +35,8 @@ if __name__ == "__main__":
     # print(f"load model time: {t2-t1}")
 
     document_context = {
-        "file_path": "/home/davud/wood-chipper-ai/test.pdf",
-        "file_name": "test.pdf",
+        "file_path": "/home/davud/work/wood-chipper-ai/test1.pdf",
+        "file_name": "test1.pdf",
         "document_id": 1,
         "transaction_id": 1,
         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlzQWRtaW4iOnRydWUsIm5hbWUiOiJBZG1pbiIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwiaWF0IjoxNzQzOTQyNDg1LCJleHAiOjE3NDM5NzEyODV9.oXn4HzMeAtIZZu3POZI1_w0BGY1ZZ5HRUpofB2GCERA",

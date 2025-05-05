@@ -1,2 +1,2 @@
 from .config import *
-from .queues import *
+from .queue import *

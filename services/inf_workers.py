@@ -1,14 +1,14 @@
 import multiprocessing
-import numpy as np
+
+# import numpy as np
 
 # import torch
 import os
-
-from typing import Dict
+import lib.redis.context_buffer as ctx_buff
+import lib.redis.queue as redis_queue
 
 # from transformers import AutoTokenizer, PreTrainedTokenizer
 
-from .context_buffer import ContextBuffer
 from config.settings import (
     # SPLITTER_MODEL_PATH,
     max_chars,
@@ -16,9 +16,10 @@ from config.settings import (
 )
 from type_defs.shared import DocumentContext, SharedQueues, InferWorkerState
 from lib.redis import redis
-from lib.redis.queues import (
-    shared_queue_pop,
-    decode_content_queue_item,
+from lib.redis.utils import (
+    get_page_content,
+    get_page_image,
+    decode_page_number,
 )
 from lib.doc_tools import create_sub_document
 from lib.document_records import create_document_record, add_document_to_client_queue
@@ -34,7 +35,7 @@ os.makedirs(debug_dir, exist_ok=True)
 def start_inf_workers(
     document_context: DocumentContext,
     workers: int,
-    pages: int,
+    total_doc_pages: int,
 ) -> list[multiprocessing.Process]:
     """
     Starts inference worker processes.
@@ -59,7 +60,7 @@ def start_inf_workers(
     for _ in range(workers):
         process = ctx.Process(
             target=inference_worker,
-            args=(document_context, pages),
+            args=(document_context, total_doc_pages),
         )
 
         process.start()
@@ -68,7 +69,7 @@ def start_inf_workers(
     return inf_processes
 
 
-def inference_worker(document_context: DocumentContext, pages: int):
+def inference_worker(document_context: DocumentContext, total_doc_pages: int):
     """
     Main loop for the inference worker.
 
@@ -91,55 +92,48 @@ def inference_worker(document_context: DocumentContext, pages: int):
     # )
     # model.eval()
 
-    ctx_buff = ContextBuffer()
-    images: Dict[int, np.ndarray] = {}
+    document_id = int(document_context["document_id"])
 
     while True:
-        item = shared_queue_pop(document_context["document_id"], SharedQueues.Contents)
+        item = redis_queue.pop(document_id, SharedQueues.Contents)
 
         if item is None:
-            for prime_page in ctx_buff.buffer:
+            for prime_page in ctx_buff.get_buffer(document_id):
                 process_page(
                     document_context,
                     # tokenizer,
                     # model,
+                    total_doc_pages,
                     prime_page,
-                    ctx_buff.get_prev_items(prime_page),
-                    ctx_buff.get_next_items(prime_page),
-                    images,
-                    pages,
+                    ctx_buff.get_prev_items(document_id, prime_page),
+                    ctx_buff.get_next_items(document_id, prime_page),
                 )
-                ctx_buff.mark_processed(prime_page)
+                ctx_buff.mark_processed(document_id, prime_page)
             break
 
-        page, image = decode_content_queue_item(item)
-        ctx_buff.push(page)
-        images[page] = image
-        print(f"[inf] {page}")
+        prime_page = decode_page_number(item)
+        print(f"[inf] {prime_page}")
 
-        for prime_page in ctx_buff.get_ready_items():
-            process_page(
-                document_context,
-                # tokenizer,
-                # model,
-                prime_page,
-                ctx_buff.get_prev_items(prime_page),
-                ctx_buff.get_next_items(prime_page),
-                images,
-                pages,
-            )
-            ctx_buff.mark_processed(prime_page)
+        process_page(
+            document_context,
+            # tokenizer,
+            # model,
+            total_doc_pages,
+            prime_page,
+            ctx_buff.get_prev_items(document_id, prime_page),
+            ctx_buff.get_next_items(document_id, prime_page),
+        )
+        ctx_buff.mark_processed(document_id, prime_page)
 
 
 def process_page(
     document_context: "DocumentContext",
     # tokenizer: PreTrainedTokenizer,
     # model: FusionModel,
+    total_doc_pages: int,
     page: int,
     prev_pages,
     next_pages,
-    images: Dict[int, np.ndarray],
-    pages: int,
 ):
     """
     Run inference on a single page using surrounding context.
@@ -174,31 +168,30 @@ def process_page(
 
     # get images & contents of all pages and format them.
     content_batch = ""
+    document_id = int(document_context["document_id"])
 
     for i, prev_page in enumerate(prev_pages):
-        prev_content = get_page_content(document_context, prev_page)
+        prev_content = get_page_content(document_id, prev_page)
         content_batch += f"<prev_page_{len(prev_pages) - i}>{prev_content[:max_chars['prev_page']]}</prev_page_{len(prev_pages) - i}>"
 
-    image = images.get(page)
-    content = get_page_content(document_context, page)
+    image = get_page_image(document_id, page)
+    content = get_page_content(document_id, page)
     content_batch += f"<curr_page>{content[:max_chars['curr_page']]}</curr_page>"
 
     for i, next_page in enumerate(next_pages):
-        next_content = get_page_content(document_context, next_page)
+        next_content = get_page_content(document_id, next_page)
         content_batch += f"<next_page_{i + 1}>{next_content[:max_chars['next_page']]}</next_page_{i + 1}>"
 
     # inference if not last or first page of doc.
     state = get_state(document_context)
 
-    if page == pages - 1:
-        handle_first_page(
-            state["sub_doc_count"],
-            state["prev_split_page"],
-            page,
-            document_context,
-        )
-        return
-    if page == 0:
+    if page == total_doc_pages - 1:
+        # handle_first_page(
+        #     state["sub_doc_count"],
+        #     state["prev_split_page"],
+        #     page,
+        #     document_context,
+        # )
         return
 
     # # debug: save images to disk.
@@ -209,7 +202,7 @@ def process_page(
     # check content similarity between prime page and prev split page.
     # if too similar (almost identical) then skip.
     # prev_split_page_content = get_page_content(
-    #     document_context, prev_split_page + 1
+    #     document_id, prev_split_page + 1
     # )
     # similarity = Levenshtein.ratio(prev_split_page_content, content)
     # if similarity > 0.985:
@@ -224,13 +217,14 @@ def process_page(
 
     # if first page call func.
     if found_first_page:
-        handle_first_page(
-            state["sub_doc_count"],
-            state["prev_split_page"],
-            page - 1,
-            document_context,
-        )
+        # handle_first_page(
+        #     state["sub_doc_count"],
+        #     state["prev_split_page"],
+        #     page - 1,
+        #     document_context,
+        # )
         update_state(document_context, page + offset, state["sub_doc_count"] + 1)
+        print(f"found first page {page - 1}")
 
 
 def handle_first_page(
@@ -295,11 +289,6 @@ def handle_first_page(
 
     upload_file_to_s3(signed_put_url, sub_document_path)
     add_document_to_client_queue(str(document_context["token"]), document_id)
-
-
-def get_page_content(document_context: DocumentContext, page: int) -> str:
-    raw = redis.get(f"page_content:{document_context['document_id']}:{page}")
-    return raw.decode("utf-8") if raw else ""  # type: ignore
 
 
 def get_state(document_context: DocumentContext) -> InferWorkerState:
