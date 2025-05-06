@@ -25,7 +25,7 @@ manager = multiprocessing.Manager()
 # --------------------------------------------------------
 # ENDPOINTS
 # --------------------------------------------------------
-@app.route("/healthcheck", methods=["POST"])
+@app.route("/healthcheck", methods=["GET"])
 def healthcheck_endpoint():
     return jsonify(), 200
 
