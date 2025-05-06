@@ -16,7 +16,7 @@ max_vocab_size = 60000
 img_workers = 1
 ocr_workers = 2
 inf_workers = 1  # this can not be bigger than 1.
-ocr_batch_size = 4
+ocr_batch_size = 8
 image_output_size = (1024, 1024)
 
 
