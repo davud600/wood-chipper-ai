@@ -32,7 +32,3 @@ http {
 EOF
 
 nginx -s reload || nginx
-
-chmod +x /workspace/wood-chipper-ai/start.sh
-
-~/../workspace/wood-chipper-ai/start.sh

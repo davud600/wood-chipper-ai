@@ -31,7 +31,6 @@ def process_request(
     None
     """
 
-    # print("processing document...")
     contents: list[str] = []
     for i in range(0, pages_to_append):
         raw = redis.get(f"page_content:{document_context['document_id']}:{i}")
@@ -44,7 +43,6 @@ def process_request(
         contents += [page_content]
 
     document_context["file_name"] = f"{document_context['document_id']}.pdf"
-    # print(f"{document_context['file_name']} - {len(contents) > 0}")
 
     content_batch = ""
     if len(contents) > 0:

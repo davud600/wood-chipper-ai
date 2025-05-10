@@ -1,17 +1,11 @@
 from flask import Flask, request, jsonify
+from datetime import datetime
 
+import logging
 import multiprocessing
 import threading
 
 from api import process_request, split_request
-
-# Warm EasyOCR models
-print("Warming EasyOCR models...")
-import easyocr
-
-reader = easyocr.Reader(["en"], gpu=True)
-print("EasyOCR models ready.")
-
 
 # --------------------------------------------------------
 # CONFIGURATION
@@ -21,12 +15,21 @@ MAX_WORKERS = 1
 app = Flask(__name__)
 manager = multiprocessing.Manager()
 
+logging.basicConfig(
+    filename="gunicorn_output.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 
 # --------------------------------------------------------
 # ENDPOINTS
 # --------------------------------------------------------
 @app.route("/healthcheck", methods=["GET"])
 def healthcheck_endpoint():
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logging.info(f"[{timestamp}] healthcheck ok")
     return jsonify(), 200
 
 
@@ -82,6 +85,8 @@ def split_endpoint():
         "signed_get_url": signed_get_url,
     }
 
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logging.info(f"[{timestamp}] split request")
     threading.Thread(
         target=split_request,
         args=(document_context,),
@@ -136,6 +141,8 @@ def process_endpoint():
         "signed_get_url": signed_get_url,
     }
 
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logging.info(f"[{timestamp}] process request")
     threading.Thread(
         target=process_request,
         args=(document_context,),
@@ -145,5 +152,5 @@ def process_endpoint():
 
 
 if __name__ == "__main__":
-    print("Starting server...")
-    app.run(host="0.0.0.0", port=8000, threaded=True, use_reloader=False)
+    logging.info("Starting server...")
+    app.run(host="0.0.0.0", port=8001, threaded=True, use_reloader=False)
