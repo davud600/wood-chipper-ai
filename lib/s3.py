@@ -9,8 +9,7 @@ def download_s3_file(signed_get_url: str, output_filename: str) -> str:
 
     file_path = os.path.join(DOWNLOADS_DIR, output_filename)
 
-    print("download url:", signed_get_url.replace("localhost", "minio"))
-    response = requests.get(signed_get_url.replace("localhost", "minio"))
+    response = requests.get(signed_get_url)
     if not response.ok:
         raise Exception("Failed to fetch document from S3.")
 
@@ -26,9 +25,8 @@ def upload_file_to_s3(signed_put_url: str, path: str):
     with open(path, "rb") as f:
         file_data = f.read()
 
-    print("upload url:", signed_put_url.replace("localhost", "minio"))
     response = requests.put(
-        signed_put_url.replace("localhost", "minio"),
+        signed_put_url,
         data=file_data,
         headers={
             "Content-Type": content_type,

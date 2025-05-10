@@ -12,6 +12,7 @@ services:
       - .:/app
     depends_on:
       - redis
+    network_mode: "host"
     deploy:
       resources:
         reservations:
@@ -25,17 +26,10 @@ services:
       #   - .env
     command: >
       gunicorn -w 1 -b 0.0.0.0:8000 server:app --timeout 600 --threads 1
-    networks:
-      - woodchipper-network
 
   redis:
     image: redis:latest
     ports:
       - "6379:6379"
     command: redis-server --save "" --appendonly no
-    networks:
-      - woodchipper-network
-
-networks:
-  woodchipper-network:
-    external: true
+    network_mode: "host"

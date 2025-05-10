@@ -218,16 +218,7 @@ Stored in `config/settings.py`
 
 ---
 
-## 🚀 Future Enhancements
-
-- 🔲 Add UI for debugging predictions
-- 🔲 Document confidence scores
-
----
-
 ## 🤝 Credits
 
-Built by Davud.
+Built by @davud600 (github).
 Model inspired by hybrid NLP + CV document understanding techniques.
-
-MIT Licensed.
