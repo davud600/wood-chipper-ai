@@ -222,3 +222,9 @@ Stored in `config/settings.py`
 
 Built by @davud600 (github).
 Model inspired by hybrid NLP + CV document understanding techniques.
+
+prod cmd:
+
+```
+/bin/bash -c "cd /workspace/wood-chipper-ai && chmod +x ./config_nginx.sh && ./config_nginx.sh && chmod +x ./start.sh && ./start.sh install && tail -f /dev/null"
+```

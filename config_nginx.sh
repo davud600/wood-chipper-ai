@@ -36,5 +36,5 @@ if pgrep -x "nginx" > /dev/null; then
     nginx -s reload
 else
     echo "NGINX is not running. Starting..."
-    nginx
+    service nginx start
 fi
