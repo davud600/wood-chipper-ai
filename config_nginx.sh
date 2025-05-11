@@ -31,4 +31,10 @@ http {
 }
 EOF
 
-nginx -s reload || nginx
+if pgrep -x "nginx" > /dev/null; then
+    echo "NGINX is running. Reloading..."
+    nginx -s reload
+else
+    echo "NGINX is not running. Starting..."
+    nginx
+fi
