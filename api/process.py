@@ -45,7 +45,7 @@ def process_request(
     document_context["file_name"] = f"{document_context['document_id']}.pdf"
 
     content_batch = ""
-    if len(contents) > 0:
+    if len(contents[0]) > 0:
         for i, content in enumerate(contents):
             content_batch += (
                 f"<curr_content>{content}</curr_content>..."
